@@ -1,0 +1,18 @@
+{
+  "name": "realtime-chat-platform",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Realtime chat platform monorepo - React/Vite frontend, Node.js/Express/Socket.IO API, Kubernetes (RKE2) multi-environment deployment.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
