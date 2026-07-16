@@ -8,8 +8,11 @@
     "packages/*"
   ],
   "scripts": {
+    "build:shared": "npm run build -w packages/shared",
     "lint": "npm run lint --workspaces --if-present",
+    "pretypecheck": "npm run build:shared",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "prebuild": "npm run build:shared",
     "build": "npm run build --workspaces --if-present"
   },
   "engines": {
