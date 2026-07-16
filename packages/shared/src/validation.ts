@@ -23,6 +23,54 @@ export function validateName(rawName: unknown): ValidationResult<string> {
   return { valid: true, value: name };
 }
 
+export function validateRoomName(rawName: unknown): ValidationResult<string> {
+  if (typeof rawName !== "string") {
+    return {
+      valid: false,
+      error: { ok: false, code: "INVALID_ROOM_NAME", message: "El nombre de la sala es obligatorio." },
+    };
+  }
+  const name = rawName.trim();
+  if (
+    name.length < VALIDATION.ROOM_NAME_MIN_LENGTH ||
+    name.length > VALIDATION.ROOM_NAME_MAX_LENGTH
+  ) {
+    return {
+      valid: false,
+      error: {
+        ok: false,
+        code: "INVALID_ROOM_NAME",
+        message: `El nombre de la sala debe tener entre ${VALIDATION.ROOM_NAME_MIN_LENGTH} y ${VALIDATION.ROOM_NAME_MAX_LENGTH} caracteres.`,
+      },
+    };
+  }
+  if (slugifyRoomName(name).length === 0) {
+    return {
+      valid: false,
+      error: {
+        ok: false,
+        code: "INVALID_ROOM_NAME",
+        message: "El nombre de la sala debe incluir al menos una letra o número.",
+      },
+    };
+  }
+  return { valid: true, value: name };
+}
+
+/** Convierte un nombre de sala en un slug URL-safe. Determinista y pura. */
+export function slugifyRoomName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // quita acentos/diacríticos (rango Unicode explícito)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, VALIDATION.ROOM_SLUG_MAX_LENGTH);
+}
+
 export function validateMessageText(rawText: unknown): ValidationResult<string> {
   if (typeof rawText !== "string") {
     return {

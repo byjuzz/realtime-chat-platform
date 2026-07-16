@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 export async function fetchMessageHistory(
   roomSlug: string,
-  options: { limit?: number; cursor?: string | null } = {}
+  options: { limit?: number; cursor?: string | null; signal?: AbortSignal } = {}
 ): Promise<MessageHistoryResponse> {
   const params = new URLSearchParams();
   if (options.limit) params.set("limit", String(options.limit));
@@ -12,7 +12,8 @@ export async function fetchMessageHistory(
 
   const query = params.toString();
   const response = await fetch(
-    `${API_URL}/api/rooms/${roomSlug}/messages${query ? `?${query}` : ""}`
+    `${API_URL}/api/rooms/${roomSlug}/messages${query ? `?${query}` : ""}`,
+    { signal: options.signal }
   );
 
   if (!response.ok) {

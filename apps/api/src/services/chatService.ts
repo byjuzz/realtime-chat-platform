@@ -1,6 +1,6 @@
-import type { ChatMessage, PublicUser } from "@realtime-chat/shared";
+import type { ChatMessage } from "@realtime-chat/shared";
 import type { IGuestUserRepository } from "../repositories/guestUserRepository.js";
-import type { IRoomRepository } from "../repositories/roomRepository.js";
+import { ROOM_SLUG_UNIQUE_VIOLATION, type IRoomRepository, type RoomRecord } from "../repositories/roomRepository.js";
 import type { IMessageRepository, MessageCursor } from "../repositories/messageRepository.js";
 
 export const GENERAL_ROOM_SLUG = "general";
@@ -12,6 +12,10 @@ export type JoinResult =
 export type SendMessageResult =
   | { ok: true; message: ChatMessage }
   | { ok: false; reason: "PERSISTENCE_FAILED" };
+
+export type CreateRoomResult =
+  | { ok: true; room: RoomRecord }
+  | { ok: false; reason: "SLUG_CONFLICT" | "PERSISTENCE_FAILED" };
 
 export interface HistoryPage {
   messages: ChatMessage[];
@@ -52,25 +56,53 @@ export class ChatService {
     }
   }
 
+  async findRoomBySlug(slug: string): Promise<RoomRecord | null> {
+    return this.rooms.findBySlug(slug);
+  }
+
+  async listRooms(): Promise<RoomRecord[]> {
+    return this.rooms.findAll();
+  }
+
+  /**
+   * La restricción única de PostgreSQL sobre Room.slug es la autoridad
+   * final ante creaciones simultáneas del mismo slug: se intenta insertar
+   * y, si la DB rechaza por colisión (P2002), se retorna SLUG_CONFLICT sin
+   * reintentar con sufijos (decisión de la Fase 4: no hay sufijo
+   * automático, se responde 409 al cliente).
+   */
+  async createRoom(name: string, slug: string): Promise<CreateRoomResult> {
+    try {
+      const room = await this.rooms.create({ name, slug });
+      return { ok: true, room };
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === ROOM_SLUG_UNIQUE_VIOLATION
+      ) {
+        return { ok: false, reason: "SLUG_CONFLICT" };
+      }
+      return { ok: false, reason: "PERSISTENCE_FAILED" };
+    }
+  }
+
   async sendMessage(params: {
     text: string;
     guestUserId: string;
-    roomSlug: string;
+    roomId: string;
   }): Promise<SendMessageResult> {
     try {
-      const room = await this.rooms.findBySlug(params.roomSlug);
-      if (!room) {
-        return { ok: false, reason: "PERSISTENCE_FAILED" };
-      }
-
       const record = await this.messages.create({
         text: params.text,
         authorId: params.guestUserId,
-        roomId: room.id,
+        roomId: params.roomId,
       });
 
       const message: ChatMessage = {
         id: record.id,
+        roomId: record.roomId,
         authorId: record.authorId,
         authorName: record.authorName,
         text: record.text,
@@ -103,6 +135,7 @@ export class ChatService {
     const messages: ChatMessage[] = page
       .map((record) => ({
         id: record.id,
+        roomId: record.roomId,
         authorId: record.authorId,
         authorName: record.authorName,
         text: record.text,
@@ -119,8 +152,4 @@ export class ChatService {
       page: { messages, hasMore, nextCursor },
     };
   }
-}
-
-export function toPublicUser(socketId: string, name: string, guestUserId: string): PublicUser {
-  return { id: socketId, name, guestUserId };
 }

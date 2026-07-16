@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { GuestUserRecord, IGuestUserRepository } from "../repositories/guestUserRepository.js";
-import type { IRoomRepository, RoomRecord } from "../repositories/roomRepository.js";
+import { ROOM_SLUG_UNIQUE_VIOLATION, type IRoomRepository, type RoomRecord } from "../repositories/roomRepository.js";
 import type {
   IMessageRepository,
   MessageCursor,
@@ -32,12 +32,27 @@ export class FakeGuestUserRepository implements IGuestUserRepository {
 export class FakeRoomRepository implements IRoomRepository {
   private readonly rooms: RoomRecord[];
 
-  constructor(seed: RoomRecord[] = [{ id: "room-general", slug: "general", name: "General" }]) {
+  constructor(
+    seed: RoomRecord[] = [{ id: "room-general", slug: "general", name: "General", createdAt: new Date(0) }]
+  ) {
     this.rooms = seed;
   }
 
   async findBySlug(slug: string): Promise<RoomRecord | null> {
     return this.rooms.find((room) => room.slug === slug) ?? null;
+  }
+
+  async findAll(): Promise<RoomRecord[]> {
+    return [...this.rooms].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async create(params: { name: string; slug: string }): Promise<RoomRecord> {
+    if (this.rooms.some((room) => room.slug === params.slug)) {
+      throw Object.assign(new Error("slug already exists"), { code: ROOM_SLUG_UNIQUE_VIOLATION });
+    }
+    const room: RoomRecord = { id: randomUUID(), name: params.name, slug: params.slug, createdAt: new Date() };
+    this.rooms.push(room);
+    return room;
   }
 }
 

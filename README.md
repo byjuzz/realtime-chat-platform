@@ -32,9 +32,9 @@ scripts                           Scripts auxiliares
 
 ## Estado del proyecto
 
-Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 3 — persistencia con
-PostgreSQL + Prisma** (mensajes, salas e identidad invitada persistidos; presencia sigue en
-memoria). Aún no se ha implementado autenticación real, Docker, Kubernetes ni CI/CD.
+Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 4 — chat con múltiples
+salas** (listar, crear, entrar, cambiar y salir de salas; presencia y mensajes aislados por
+sala). Aún no se ha implementado autenticación real, Docker, Kubernetes ni CI/CD.
 
 ## Desarrollo local
 
@@ -89,10 +89,19 @@ npm run dev -w apps/web    # Frontend en http://localhost:5173
 ```
 
 Abre `http://localhost:5173` en dos o más pestañas para probar el chat en tiempo real. Los
-mensajes y la sala general ahora persisten en PostgreSQL — sobreviven a un reinicio de
-`apps/api`. La presencia (quién está conectado ahora mismo) sigue en memoria, ver
-[ADR-003](docs/adr/ADR-003-in-memory-state-mvp.md) y
-[ADR-004](docs/adr/ADR-004-postgresql-prisma-persistence.md).
+mensajes y las salas persisten en PostgreSQL — sobreviven a un reinicio de `apps/api`. La
+presencia (quién está conectado ahora mismo) sigue en memoria, ver
+[ADR-003](docs/adr/ADR-003-in-memory-state-mvp.md),
+[ADR-004](docs/adr/ADR-004-postgresql-prisma-persistence.md) y
+[ADR-005](docs/adr/ADR-005-multi-room-chat.md).
+
+Usa el selector de salas (sidebar en desktop, drawer en móvil) para crear salas nuevas y
+cambiar entre ellas. Cada sala tiene su propio historial y su propia lista de conectados.
+
+> Nota de prueba manual: si abres varias pestañas del mismo navegador para simular usuarios
+> distintos, ten en cuenta que `localStorage` se comparte por origen, no por pestaña — usa
+> `localStorage.clear()` + recargar antes de unirte con un nombre distinto en cada pestaña,
+> o usa ventanas de incógnito separadas.
 
 ### Pruebas de integración (requieren PostgreSQL local)
 

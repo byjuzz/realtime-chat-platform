@@ -12,8 +12,8 @@ describe("MessageList", () => {
 
   it("renderiza los mensajes, mostrando el autor solo en los mensajes ajenos", () => {
     const messages: ChatMessage[] = [
-      { id: "1", authorId: "a1", authorName: "Ada", text: "hola", ts: Date.now() },
-      { id: "2", authorId: "a2", authorName: "Grace", text: "qué tal", ts: Date.now() },
+      { id: "1", roomId: "room-1", authorId: "a1", authorName: "Ada", text: "hola", ts: Date.now() },
+      { id: "2", roomId: "room-1", authorId: "a2", authorName: "Grace", text: "qué tal", ts: Date.now() },
     ];
     render(<MessageList messages={messages} currentUserId="a1" />);
 
