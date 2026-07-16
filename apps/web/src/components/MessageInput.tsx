@@ -19,22 +19,31 @@ export function MessageInput({ onSend, error, disabled }: MessageInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} aria-label="Enviar mensaje">
-      <label htmlFor="message-text">Mensaje</label>
-      <input
-        id="message-text"
-        name="text"
-        type="text"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        maxLength={VALIDATION.MESSAGE_MAX_LENGTH}
-        disabled={disabled}
-        autoComplete="off"
-      />
-      <button type="submit" disabled={disabled}>
-        Enviar
-      </button>
-      {error ? <p role="alert">{error}</p> : null}
-    </form>
+    <>
+      {error ? (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <form className="message-input-bar" onSubmit={handleSubmit} aria-label="Enviar mensaje">
+        <label htmlFor="message-text" style={{ display: "none" }}>
+          Mensaje
+        </label>
+        <input
+          id="message-text"
+          name="text"
+          type="text"
+          placeholder="Escribe un mensaje..."
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          maxLength={VALIDATION.MESSAGE_MAX_LENGTH}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        <button type="submit" disabled={disabled} aria-label="Enviar">
+          ➤
+        </button>
+      </form>
+    </>
   );
 }
