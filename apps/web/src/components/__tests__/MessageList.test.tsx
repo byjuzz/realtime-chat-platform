@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@realtime-chat/shared";
 import { MessageList } from "../MessageList";
 
@@ -21,5 +22,24 @@ describe("MessageList", () => {
     expect(screen.getByText("Grace")).toBeInTheDocument();
     expect(screen.getByText(/hola/)).toBeInTheDocument();
     expect(screen.getByText(/qué tal/)).toBeInTheDocument();
+  });
+
+  it("muestra el botón de cargar mensajes anteriores cuando hasMoreHistory es true", async () => {
+    const onLoadMore = vi.fn();
+    render(<MessageList messages={[]} hasMoreHistory onLoadMore={onLoadMore} />);
+
+    const button = screen.getByRole("button", { name: "Cargar mensajes anteriores" });
+    await userEvent.click(button);
+    expect(onLoadMore).toHaveBeenCalled();
+  });
+
+  it("muestra estado de carga en el botón mientras historyLoading es true", () => {
+    render(<MessageList messages={[]} hasMoreHistory historyLoading />);
+    expect(screen.getByRole("button", { name: "Cargando..." })).toBeDisabled();
+  });
+
+  it("muestra un error de historial cuando se provee", () => {
+    render(<MessageList messages={[]} historyError="No se pudo cargar el historial." />);
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo cargar el historial.");
   });
 });

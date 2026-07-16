@@ -8,11 +8,16 @@ import {
   validateName,
 } from "@realtime-chat/shared";
 import { RoomState } from "./roomState.js";
+import { ChatService, GENERAL_ROOM_SLUG } from "./services/chatService.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
-export function createSocketServer(httpServer: HttpServer, corsOrigin: string): AppServer {
+export function createSocketServer(
+  httpServer: HttpServer,
+  corsOrigin: string,
+  chatService: ChatService
+): AppServer {
   const io: AppServer = new Server(httpServer, {
     cors: { origin: corsOrigin },
   });
@@ -32,11 +37,23 @@ export function createSocketServer(httpServer: HttpServer, corsOrigin: string): 
         return;
       }
 
-      const user = room.join(socket.id, result.value);
-      ack({ ok: true, data: { user } });
+      void (async () => {
+        const guestResult = await chatService.resolveGuestUser(result.value, payload?.guestUserId);
+        if (!guestResult.ok) {
+          ack({
+            ok: false,
+            code: "MESSAGE_PERSISTENCE_FAILED",
+            message: "No se pudo guardar tu identidad de invitado. Intenta de nuevo.",
+          });
+          return;
+        }
 
-      socket.broadcast.emit("user:joined", user);
-      io.emit("user:list", { users: room.listUsers() });
+        const user = room.join(socket.id, result.value, guestResult.guestUserId);
+        ack({ ok: true, data: { user } });
+
+        socket.broadcast.emit("user:joined", user);
+        io.emit("user:list", { users: room.listUsers() });
+      })();
     });
 
     socket.on("message:send", (payload, ack) => {
@@ -62,16 +79,31 @@ export function createSocketServer(httpServer: HttpServer, corsOrigin: string): 
         return;
       }
 
-      const message: ChatMessage = {
-        id: crypto.randomUUID(),
-        authorId: author.id,
-        authorName: author.name,
-        text: result.value,
-        ts: now,
-      };
+      void (async () => {
+        const sendResult = await chatService.sendMessage({
+          text: result.value,
+          guestUserId: author.guestUserId,
+          roomSlug: GENERAL_ROOM_SLUG,
+        });
 
-      ack({ ok: true, data: { message } });
-      io.emit("message:new", message);
+        if (!sendResult.ok) {
+          ack({
+            ok: false,
+            code: "MESSAGE_PERSISTENCE_FAILED",
+            message: "No se pudo guardar el mensaje. Intenta de nuevo.",
+          });
+          console.error("message persistence failed", {
+            authorId: author.guestUserId,
+            roomSlug: GENERAL_ROOM_SLUG,
+            ts: now,
+          });
+          return;
+        }
+
+        const message: ChatMessage = sendResult.message;
+        ack({ ok: true, data: { message } });
+        io.emit("message:new", message);
+      })();
     });
 
     socket.on("disconnect", () => {

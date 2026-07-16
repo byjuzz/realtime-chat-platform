@@ -6,8 +6,8 @@ import { UserList } from "../UserList";
 describe("UserList", () => {
   it("marca al usuario actual", () => {
     const users: PublicUser[] = [
-      { id: "a1", name: "Ada" },
-      { id: "a2", name: "Grace" },
+      { id: "a1", name: "Ada", guestUserId: "guest-1" },
+      { id: "a2", name: "Grace", guestUserId: "guest-2" },
     ];
     render(<UserList users={users} currentUserId="a1" />);
 

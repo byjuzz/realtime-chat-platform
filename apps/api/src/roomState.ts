@@ -13,8 +13,8 @@ export class RoomState {
     return this.usersBySocketId.has(socketId);
   }
 
-  join(socketId: string, name: string): PublicUser {
-    const user: PublicUser = { id: socketId, name };
+  join(socketId: string, name: string, guestUserId: string): PublicUser {
+    const user: PublicUser = { id: socketId, name, guestUserId };
     this.usersBySocketId.set(socketId, user);
     return user;
   }
