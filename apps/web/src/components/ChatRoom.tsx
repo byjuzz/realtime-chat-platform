@@ -11,6 +11,7 @@ export interface ChatRoomProps {
   historyLoading?: boolean;
   historyError?: string | null;
   hasMoreHistory?: boolean;
+  disabled?: boolean;
   onSend: (text: string) => void;
   onLoadMoreHistory?: () => void;
 }
@@ -23,6 +24,7 @@ export function ChatRoom({
   historyLoading,
   historyError,
   hasMoreHistory,
+  disabled,
   onSend,
   onLoadMoreHistory,
 }: ChatRoomProps) {
@@ -37,7 +39,7 @@ export function ChatRoom({
         historyError={historyError}
         onLoadMore={onLoadMoreHistory}
       />
-      <MessageInput onSend={onSend} error={sendError} />
+      <MessageInput onSend={onSend} error={sendError} disabled={disabled} />
     </section>
   );
 }

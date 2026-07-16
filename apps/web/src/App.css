@@ -1,20 +1,57 @@
+/* --- Layout general (Fase 4: sidebar de salas + tarjeta de chat) --- */
+
+.app-shell {
+  width: 100%;
+  max-width: 760px;
+  height: min(760px, 100svh - 64px);
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+
 .chat-card {
   width: 100%;
   max-width: 420px;
-  height: min(760px, 100svh - 64px);
+  height: 100%;
   background: var(--surface);
   border-radius: 28px;
   box-shadow: var(--card-shadow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .chat-header {
   flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   padding: 24px 24px 20px;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: #ffffff;
+}
+
+.chat-header__drawer-toggle {
+  display: none;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  flex: none;
+}
+
+@media (max-width: 879px) {
+  .chat-header__drawer-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .chat-header h1 {
@@ -320,4 +357,236 @@
   border-radius: 10px;
   padding: 6px 12px;
   font-size: 12px;
+}
+
+/* --- Selector de salas (sidebar en desktop, drawer en móvil) --- */
+
+.room-drawer {
+  width: 240px;
+  flex: none;
+  background: var(--surface);
+  border-radius: 24px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.room-drawer-backdrop {
+  display: none;
+}
+
+@media (max-width: 879px) {
+  .room-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100svh;
+    width: min(280px, 82vw);
+    border-radius: 0 20px 20px 0;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 20;
+  }
+
+  .room-drawer--open {
+    transform: translateX(0);
+  }
+
+  .room-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 31, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 19;
+  }
+
+  .room-drawer-backdrop--open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-drawer {
+    transition: none;
+  }
+  .room-drawer-backdrop {
+    transition: none;
+  }
+}
+
+.room-selector {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.room-selector__header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 18px 14px;
+}
+
+.room-selector__header h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.room-selector__create-button {
+  border: none;
+  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.room-selector__create-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.room-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.room-list__status {
+  padding: 0 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.room-list-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.room-list-item:hover {
+  background: var(--bg-grad-start);
+}
+
+.room-list-item[data-active="true"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.room-list-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.room-list-item__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-list-item__count {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-grad-start);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.room-list-item[data-active="true"] .room-list-item__count {
+  color: var(--primary);
+  background: var(--surface);
+}
+
+/* --- Modal de creación de sala --- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 31, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  padding: 16px;
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--card-shadow);
+}
+
+.modal-dialog h2 {
+  font-size: 17px;
+  margin-bottom: 16px;
+}
+
+.modal-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-dialog label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.modal-dialog input {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  background: var(--bg-grad-start);
+  color: var(--text);
+  outline: none;
+}
+
+.modal-dialog input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.modal-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.chat-button--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
 }
