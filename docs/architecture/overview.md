@@ -1,7 +1,7 @@
 # Arquitectura — Visión general
 
-> Estado: Fase 3 (persistencia con PostgreSQL + Prisma). Los componentes marcados como futuros
-> aún no están implementados.
+> Estado: Fase 4 (chat con múltiples salas). Los componentes marcados como futuros aún no
+> están implementados.
 
 ## Componentes
 
@@ -17,8 +17,9 @@
                     │   apps/api            │
                     │   Express + TS        │
                     │   Socket.IO server      │
-                    │   RoomState (presencia,  │
-                    │     en memoria)            │
+                    │   RoomPresenceState        │
+                    │     (presencia por sala,     │
+                    │      en memoria)               │
                     │   ChatService              │
                     │   Repositories               │
                     └──────────┬───────────┘
@@ -58,29 +59,37 @@ Definido en `packages/shared/src/events.ts`, compartido entre `apps/web` y `apps
 
 | Evento | Dirección | Acknowledgement |
 |---|---|---|
-| `user:join` | cliente → servidor | `JoinAck` (éxito con `PublicUser`, o error tipado) |
+| `room:join` | cliente → servidor | `RoomJoinAck` (resuelve identidad invitada **y** une a la sala; éxito con `{user, room, users}`, o error tipado) |
+| `room:leave` | cliente → servidor | `RoomLeaveAck` |
 | `message:send` | cliente → servidor | `MessageAck` (éxito con `ChatMessage`, o error tipado) |
-| `user:joined` | servidor → todos | — |
-| `user:left` | servidor → todos | — |
-| `user:list` | servidor → todos | — (se reemite completa tras cada entrada/salida) |
+| `room:joined` | servidor → sala | — (informativo; se emite solo si el guest no tenía ya otro socket en esa sala) |
+| `room:left` | servidor → sala | — |
+| `room:users` | servidor → sala | lista consolidada por `guestUserId` (se reemite tras cada entrada/salida) |
+| `message:new` | servidor → sala (`io.to(roomId)`) | — |
 
 `connect_error` es un evento **nativo** del cliente de Socket.IO (no forma parte de
-`ServerToClientEvents`).
+`ServerToClientEvents`). Fase 4 reemplazó por completo `user:join`/`user:joined`/`user:left`/
+`user:list` — ver [ADR-005](../adr/ADR-005-multi-room-chat.md).
 
-**Identidad**: `PublicUser.id` es el `socket.id` (presencia, por conexión). `PublicUser.guestUserId`
-es el `GuestUser.id` persistente (ver [ADR-004](../adr/ADR-004-postgresql-prisma-persistence.md)).
-`ChatMessage.authorId` referencia el `guestUserId`, no el `socket.id`.
+**Identidad**: `PublicUser.id` es ahora el `guestUserId` consolidado (antes era el `socket.id`;
+cambió porque la presencia se consolida por invitado, no por conexión — ver ADR-005).
+`ChatMessage.roomId` es el identificador canónico de sala en cada mensaje.
 
 Reglas de negocio en `apps/api/src/socket.ts`:
 
-- Un socket no puede enviar `message:send` hasta completar `user:join` con éxito.
-- Un socket no puede ejecutar `user:join` dos veces (`ALREADY_JOINED`).
+- **Una sala activa por socket**, aplicada por `RoomPresenceState`; `socket.join`/`socket.leave`
+  (rooms nativas de Socket.IO) mantienen el aislamiento de broadcast.
+- `room:join` valida que la sala destino existe **antes** de abandonar la sala anterior.
+- Un socket no puede enviar `message:send` sin una sala activa (`NOT_JOINED`).
+- **El servidor determina la sala del mensaje desde el estado del socket, nunca desde el payload
+  del cliente.**
 - Validación de nombre y mensaje según `VALIDATION` en `packages/shared`.
-- Límite de frecuencia de mensajes por socket (rate limiting, en memoria).
-- **`message:new` solo se emite si el mensaje se persistió correctamente en PostgreSQL.** Si la
-  escritura falla, se responde `MESSAGE_PERSISTENCE_FAILED` y no se emite nada.
-- Al desconectarse: se limpia el usuario de `RoomState` (presencia), se notifica `user:left` +
-  `user:list` actualizado. Esto **no** borra al `GuestUser` de la base — su historial persiste.
+- Límite de frecuencia de mensajes por socket (rate limiting, en memoria, independiente de la sala).
+- **`message:new` solo se emite (`io.to(roomId)`) si el mensaje se persistió correctamente en
+  PostgreSQL.** Si la escritura falla, se responde `MESSAGE_PERSISTENCE_FAILED` y no se emite nada.
+- Al desconectarse o cambiar de sala: se limpia la presencia del socket; `room:left` solo se
+  emite si era el último socket de ese `guestUserId` en la sala. Esto **no** borra al
+  `GuestUser` ni sus mensajes de la base.
 
 ## Historial de mensajes (REST)
 
@@ -89,10 +98,21 @@ Reglas de negocio en `apps/api/src/socket.ts`:
 `404` si la sala no existe; `400` si `limit`/`cursor` son inválidos. Ver
 `packages/shared/src/events.ts` → `MessageHistoryResponse`.
 
+## API REST de salas
+
+- `GET /api/rooms` — lista todas las salas (orden `createdAt` ascendente), con `connectedUsers`
+  calculado en memoria desde `RoomPresenceState`.
+- `POST /api/rooms` — crea una sala pública. Slug generado en backend desde `name` (nunca
+  enviado por el cliente); `409 ROOM_SLUG_CONFLICT` ante colisión o slug reservado.
+- `GET /api/rooms/:slug` — recupera una sala; `404` si no existe.
+
+Ver [ADR-005](../adr/ADR-005-multi-room-chat.md) para el detalle de las decisiones.
+
 ## Estado del servidor
 
-- **Presencia** (quién está conectado ahora): en memoria (`RoomState`), sin persistir
-  `socket.id` ni estado online/offline — ver ADR-004.
+- **Presencia** (quién está conectado ahora, por sala): en memoria (`RoomPresenceState`), sin
+  persistir `socket.id` ni estado online/offline — ver ADR-004/ADR-005. Consolidada por
+  `guestUserId`: varias pestañas del mismo invitado cuentan como una sola presencia visible.
 - **Mensajes y salas**: persistidos en PostgreSQL vía Prisma.
 - **Identidad invitada** (`GuestUser`): persistida en PostgreSQL, sin autenticación real — ver
   ADR-004 para el detalle y las limitaciones aceptadas.
@@ -124,5 +144,5 @@ Dos bases: `realtime_chat_dev` y `realtime_chat_test`. Ver README para el proced
 
 ## Fuera de alcance en esta fase
 
-Autenticación real, múltiples salas (el modelo lo soporta, no hay UI), Docker, Kubernetes,
-pipelines CI/CD.
+Autenticación real, eliminación/edición de salas, salas privadas, roles, membresías
+persistentes, Docker, Kubernetes, pipelines CI/CD.
