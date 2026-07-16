@@ -6,12 +6,14 @@ let guestUsers: FakeGuestUserRepository;
 let rooms: FakeRoomRepository;
 let messages: FakeMessageRepository;
 let chatService: ChatService;
+let generalRoomId: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   guestUsers = new FakeGuestUserRepository();
   rooms = new FakeRoomRepository();
   messages = new FakeMessageRepository(guestUsers);
   chatService = new ChatService(guestUsers, rooms, messages);
+  generalRoomId = (await rooms.findBySlug("general"))!.id;
 });
 
 describe("ChatService.resolveGuestUser", () => {
@@ -44,18 +46,49 @@ describe("ChatService.resolveGuestUser", () => {
   });
 });
 
+describe("ChatService.listRooms / findRoomBySlug", () => {
+  it("lista las salas existentes, incluyendo la general sembrada", async () => {
+    const list = await chatService.listRooms();
+    expect(list.some((room) => room.slug === "general")).toBe(true);
+  });
+
+  it("retorna null para una sala inexistente", async () => {
+    const room = await chatService.findRoomBySlug("no-existe");
+    expect(room).toBeNull();
+  });
+});
+
+describe("ChatService.createRoom", () => {
+  it("crea una sala nueva con éxito", async () => {
+    const result = await chatService.createRoom("Tecnología", "tecnologia");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.room.slug).toBe("tecnologia");
+      expect(result.room.name).toBe("Tecnología");
+    }
+  });
+
+  it("retorna SLUG_CONFLICT si el slug ya existe (autoridad final: el repositorio/DB)", async () => {
+    await chatService.createRoom("Tecnología", "tecnologia");
+    const second = await chatService.createRoom("Tecnología otra vez", "tecnologia");
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.reason).toBe("SLUG_CONFLICT");
+  });
+});
+
 describe("ChatService.sendMessage", () => {
-  it("persiste el mensaje antes de retornarlo", async () => {
+  it("persiste el mensaje en la sala correcta antes de retornarlo", async () => {
     const guest = await guestUsers.create("Ada");
     const result = await chatService.sendMessage({
       text: "hola",
       guestUserId: guest.id,
-      roomSlug: "general",
+      roomId: generalRoomId,
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.message.text).toBe("hola");
       expect(result.message.authorName).toBe("Ada");
+      expect(result.message.roomId).toBe(generalRoomId);
     }
   });
 
@@ -65,20 +98,10 @@ describe("ChatService.sendMessage", () => {
     const result = await chatService.sendMessage({
       text: "hola",
       guestUserId: guest.id,
-      roomSlug: "general",
+      roomId: generalRoomId,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("PERSISTENCE_FAILED");
-  });
-
-  it("retorna fallo tipado si la sala no existe", async () => {
-    const guest = await guestUsers.create("Ada");
-    const result = await chatService.sendMessage({
-      text: "hola",
-      guestUserId: guest.id,
-      roomSlug: "sala-inexistente",
-    });
-    expect(result.ok).toBe(false);
   });
 });
 
@@ -91,7 +114,7 @@ describe("ChatService.getHistory", () => {
   it("pagina por cursor y retorna hasMore correctamente", async () => {
     const guest = await guestUsers.create("Ada");
     for (let i = 0; i < 5; i++) {
-      await chatService.sendMessage({ text: `msg ${i}`, guestUserId: guest.id, roomSlug: "general" });
+      await chatService.sendMessage({ text: `msg ${i}`, guestUserId: guest.id, roomId: generalRoomId });
     }
 
     const firstPage = await chatService.getHistory("general", 2);
@@ -103,16 +126,20 @@ describe("ChatService.getHistory", () => {
     }
   });
 
-  it("retorna los mensajes en orden cronológico ascendente", async () => {
+  it("aísla el historial por sala: mensajes de otra sala no aparecen", async () => {
     const guest = await guestUsers.create("Ada");
-    await chatService.sendMessage({ text: "primero", guestUserId: guest.id, roomSlug: "general" });
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    await chatService.sendMessage({ text: "segundo", guestUserId: guest.id, roomSlug: "general" });
+    const otherRoom = await chatService.createRoom("Tecnología", "tecnologia");
+    if (!otherRoom.ok) throw new Error("setup failed");
 
-    const result = await chatService.getHistory("general", 50);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.page.messages.map((m) => m.text)).toEqual(["primero", "segundo"]);
+    await chatService.sendMessage({ text: "en general", guestUserId: guest.id, roomId: generalRoomId });
+    await chatService.sendMessage({ text: "en tecnologia", guestUserId: guest.id, roomId: otherRoom.room.id });
+
+    const generalHistory = await chatService.getHistory("general", 50);
+    const techHistory = await chatService.getHistory("tecnologia", 50);
+    expect(generalHistory.ok && techHistory.ok).toBe(true);
+    if (generalHistory.ok && techHistory.ok) {
+      expect(generalHistory.page.messages.map((m) => m.text)).toEqual(["en general"]);
+      expect(techHistory.page.messages.map((m) => m.text)).toEqual(["en tecnologia"]);
     }
   });
 });
