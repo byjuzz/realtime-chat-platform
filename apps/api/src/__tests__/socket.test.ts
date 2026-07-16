@@ -12,15 +12,22 @@ import type {
 } from "@realtime-chat/shared";
 import { VALIDATION } from "@realtime-chat/shared";
 import { createSocketServer } from "../socket.js";
+import { ChatService } from "../services/chatService.js";
+import { FakeGuestUserRepository, FakeMessageRepository, FakeRoomRepository } from "./fakes.js";
 
 type AppClientSocket = ClientSocket<ServerToClientEvents, ClientToServerEvents>;
 
 let httpServer: HttpServer;
 let baseUrl: string;
+let messageRepository: FakeMessageRepository;
 
 beforeEach(async () => {
   httpServer = createServer();
-  createSocketServer(httpServer, "http://localhost:5173");
+  const guestUsers = new FakeGuestUserRepository();
+  const rooms = new FakeRoomRepository();
+  messageRepository = new FakeMessageRepository(guestUsers);
+  const chatService = new ChatService(guestUsers, rooms, messageRepository);
+  createSocketServer(httpServer, "http://localhost:5173", chatService);
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   const { port } = httpServer.address() as AddressInfo;
   baseUrl = `http://localhost:${port}`;
@@ -153,6 +160,31 @@ describe("socket server", () => {
     expect(ack.ok).toBe(false);
     if (!ack.ok) expect(ack.code).toBe("NOT_JOINED");
     a.close();
+  });
+
+  it("no emite message:new si la persistencia falla, y responde ack de error", async () => {
+    const a = await connectClient();
+    const b = await connectClient();
+    await join(a, "Ada");
+    await join(b, "Grace");
+
+    let received = false;
+    b.on("message:new", () => {
+      received = true;
+    });
+
+    messageRepository.failNextCreate = true;
+    const ack = await sendMessage(a, "este mensaje no debe persistirse");
+
+    expect(ack.ok).toBe(false);
+    if (!ack.ok) expect(ack.code).toBe("MESSAGE_PERSISTENCE_FAILED");
+
+    // damos un tick para asegurarnos de que, si se emitiera, ya habría llegado
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(received).toBe(false);
+
+    a.close();
+    b.close();
   });
 
   it("limpia el usuario y notifica user:left tras la desconexión", async () => {

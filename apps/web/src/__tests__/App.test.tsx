@@ -10,8 +10,12 @@ const mockState: { value: UseChatSocketResult } = {
     messages: [],
     joinError: null,
     sendError: null,
+    historyLoading: false,
+    historyError: null,
+    hasMoreHistory: false,
     join: vi.fn(),
     sendMessage: vi.fn(),
+    loadMoreHistory: vi.fn(),
   },
 };
 
@@ -31,7 +35,7 @@ describe("App - transición de ingreso a chat", () => {
   it("muestra ChatRoom cuando ya existe un usuario actual", () => {
     mockState.value = {
       ...mockState.value,
-      currentUser: { id: "a1", name: "Ada" },
+      currentUser: { id: "a1", name: "Ada", guestUserId: "guest-1" },
     };
     render(<App />);
     expect(screen.getByRole("region", { name: "Sala de chat" })).toBeInTheDocument();
