@@ -199,6 +199,36 @@
   font-size: 14px;
 }
 
+.message-list__load-more {
+  display: flex;
+  justify-content: center;
+}
+
+.message-list__load-more button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.message-list__load-more button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.message-list__history-error {
+  align-self: center;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .message-row {
   display: flex;
   gap: 8px;

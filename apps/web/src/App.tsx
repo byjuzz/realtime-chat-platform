@@ -4,8 +4,20 @@ import { useChatSocket } from "./hooks/useChatSocket";
 import "./App.css";
 
 function App() {
-  const { connected, currentUser, users, messages, joinError, sendError, join, sendMessage } =
-    useChatSocket();
+  const {
+    connected,
+    currentUser,
+    users,
+    messages,
+    joinError,
+    sendError,
+    historyLoading,
+    historyError,
+    hasMoreHistory,
+    join,
+    sendMessage,
+    loadMoreHistory,
+  } = useChatSocket();
 
   return (
     <div className="chat-card">
@@ -23,7 +35,11 @@ function App() {
           users={users}
           messages={messages}
           sendError={sendError}
+          historyLoading={historyLoading}
+          historyError={historyError}
+          hasMoreHistory={hasMoreHistory}
           onSend={sendMessage}
+          onLoadMoreHistory={loadMoreHistory}
         />
       ) : (
         <JoinForm onJoin={join} error={joinError} />
