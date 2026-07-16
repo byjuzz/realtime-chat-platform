@@ -12,6 +12,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "pretypecheck": "npm run build:shared",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "pretest": "npm run build:shared",
+    "test": "npm run test --workspaces --if-present",
     "prebuild": "npm run build:shared",
     "build": "npm run build --workspaces --if-present"
   },
