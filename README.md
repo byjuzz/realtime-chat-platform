@@ -32,9 +32,9 @@ scripts                           Scripts auxiliares
 
 ## Estado del proyecto
 
-Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 1 — bootstrap del monorepo**
-(estructura, documentación inicial, esqueletos de frontend/API). Aún no se ha implementado
-el chat en tiempo real, la base de datos, Docker ni Kubernetes.
+Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 2 — MVP de chat en
+tiempo real, local** (React + Socket.IO + Express, sin persistencia). Aún no se ha implementado
+la base de datos, Docker, Kubernetes ni CI/CD.
 
 ## Desarrollo local
 
@@ -44,10 +44,25 @@ Requisitos: Node.js >= 20, npm.
 npm install
 npm run typecheck
 npm run lint
+npm run test
 npm run build
 ```
 
 Copia `.env.example` a `.env` y completa los valores locales (nunca commitear `.env`).
+
+### Correr el chat localmente
+
+En dos terminales separadas:
+
+```bash
+npm run dev -w apps/api    # API + Socket.IO en http://localhost:3000
+npm run dev -w apps/web    # Frontend en http://localhost:5173
+```
+
+Abre `http://localhost:5173` en dos o más pestañas del navegador para probar el chat en
+tiempo real entre varios usuarios. El estado (usuarios y mensajes) vive en memoria del
+proceso de `apps/api` — se pierde al reiniciarlo (ver
+[ADR-003](docs/adr/ADR-003-in-memory-state-mvp.md)).
 
 ## Entornos
 
