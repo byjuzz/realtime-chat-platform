@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model GuestUser {
+  id          String    @id @default(uuid())
+  displayName String    @db.VarChar(24)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+
+  @@map("guest_users")
+}
+
+model Room {
+  id        String    @id @default(uuid())
+  name      String    @db.VarChar(60)
+  slug      String    @unique @db.VarChar(60)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@map("rooms")
+}
+
+model Message {
+  id        String    @id @default(uuid())
+  text      String    @db.VarChar(500)
+  authorId  String
+  author    GuestUser @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@index([roomId, createdAt])
+  @@map("messages")
+}
