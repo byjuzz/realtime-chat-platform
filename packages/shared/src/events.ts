@@ -19,8 +19,9 @@ export const VALIDATION = {
 // --- Modelos ---
 
 export interface PublicUser {
-  id: string;
+  id: string; // socket.id: identidad de PRESENCIA, por conexión
   name: string;
+  guestUserId: string; // GuestUser.id: identidad PERSISTENTE, ver ADR-004
 }
 
 export interface ChatMessage {
@@ -39,7 +40,8 @@ export type ErrorCode =
   | "NOT_JOINED"
   | "EMPTY_MESSAGE"
   | "MESSAGE_TOO_LONG"
-  | "RATE_LIMITED";
+  | "RATE_LIMITED"
+  | "MESSAGE_PERSISTENCE_FAILED";
 
 export interface ErrorResponse {
   ok: false;
@@ -57,10 +59,20 @@ export type AckResponse<T> = SuccessResponse<T> | ErrorResponse;
 export type JoinAck = AckResponse<{ user: PublicUser }>;
 export type MessageAck = AckResponse<{ message: ChatMessage }>;
 
+// --- Historial de mensajes (REST) ---
+
+export interface MessageHistoryResponse {
+  room: { slug: string; name: string };
+  messages: ChatMessage[]; // orden cronológico ascendente
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 // --- Payloads entrantes (cliente -> servidor) ---
 
 export interface UserJoinPayload {
   name: string;
+  guestUserId?: string; // ausente en la primera visita del navegador
 }
 
 export interface MessageSendPayload {
