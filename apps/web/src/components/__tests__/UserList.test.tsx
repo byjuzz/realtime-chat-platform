@@ -11,7 +11,7 @@ describe("UserList", () => {
     ];
     render(<UserList users={users} currentUserId="a1" />);
 
-    expect(screen.getByText("Ada (tú)")).toBeInTheDocument();
+    expect(screen.getByText("Tú")).toBeInTheDocument();
     expect(screen.getByText("Grace")).toBeInTheDocument();
   });
 });

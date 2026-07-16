@@ -8,9 +8,15 @@ function App() {
     useChatSocket();
 
   return (
-    <main>
-      <h1>Realtime Chat — MVP</h1>
-      <p>Estado de conexión: {connected ? "conectado" : "desconectado"}</p>
+    <div className="chat-card">
+      <header className="chat-header">
+        <h1>Realtime Chat</h1>
+        <p className="chat-header__status">
+          <span className="chat-header__dot" data-connected={connected} />
+          {connected ? "Conectado" : "Desconectado"}
+        </p>
+      </header>
+
       {currentUser ? (
         <ChatRoom
           currentUser={currentUser}
@@ -22,7 +28,7 @@ function App() {
       ) : (
         <JoinForm onJoin={join} error={joinError} />
       )}
-    </main>
+    </div>
   );
 }
 

@@ -1,4 +1,5 @@
 import type { PublicUser } from "@realtime-chat/shared";
+import { Avatar } from "./Avatar";
 
 export interface UserListProps {
   users: PublicUser[];
@@ -7,11 +8,13 @@ export interface UserListProps {
 
 export function UserList({ users, currentUserId }: UserListProps) {
   return (
-    <ul aria-label="Usuarios conectados">
+    <ul className="user-strip" aria-label="Usuarios conectados">
       {users.map((user) => (
-        <li key={user.id}>
-          {user.name}
-          {user.id === currentUserId ? " (tú)" : ""}
+        <li className="user-chip" key={user.id}>
+          <Avatar name={user.name} />
+          <span className="user-chip__name">
+            {user.id === currentUserId ? "Tú" : user.name}
+          </span>
         </li>
       ))}
     </ul>

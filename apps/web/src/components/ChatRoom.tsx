@@ -13,7 +13,7 @@ export interface ChatRoomProps {
 
 export function ChatRoom({ currentUser, users, messages, sendError, onSend }: ChatRoomProps) {
   return (
-    <section aria-label="Sala de chat">
+    <section className="chat-room" aria-label="Sala de chat">
       <UserList users={users} currentUserId={currentUser.id} />
       <MessageList messages={messages} currentUserId={currentUser.id} />
       <MessageInput onSend={onSend} error={sendError} />

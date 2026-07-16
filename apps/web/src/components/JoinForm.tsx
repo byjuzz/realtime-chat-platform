@@ -18,23 +18,34 @@ export function JoinForm({ onJoin, error, submitting }: JoinFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} aria-label="Unirse al chat">
-      <label htmlFor="join-name">Tu nombre</label>
-      <input
-        id="join-name"
-        name="name"
-        type="text"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        minLength={VALIDATION.NAME_MIN_LENGTH}
-        maxLength={VALIDATION.NAME_MAX_LENGTH}
-        disabled={submitting}
-        autoComplete="off"
-      />
-      <button type="submit" disabled={submitting}>
-        Entrar al chat
-      </button>
-      {error ? <p role="alert">{error}</p> : null}
-    </form>
+    <div className="join-screen">
+      <div>
+        <p className="join-screen__title">Únete a la sala</p>
+        <p className="join-screen__subtitle">Elige un nombre para empezar a chatear</p>
+      </div>
+      <form className="join-form" onSubmit={handleSubmit} aria-label="Unirse al chat">
+        <label htmlFor="join-name">Tu nombre</label>
+        <input
+          id="join-name"
+          name="name"
+          type="text"
+          placeholder="Ej. Ada"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          minLength={VALIDATION.NAME_MIN_LENGTH}
+          maxLength={VALIDATION.NAME_MAX_LENGTH}
+          disabled={submitting}
+          autoComplete="off"
+        />
+        <button className="chat-button" type="submit" disabled={submitting}>
+          Entrar al chat
+        </button>
+        {error ? (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </form>
+    </div>
   );
 }
