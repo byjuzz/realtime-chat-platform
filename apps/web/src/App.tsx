@@ -1,122 +1,123 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useRef, useState } from "react";
+import { ChatRoom } from "./components/ChatRoom";
+import { JoinForm } from "./components/JoinForm";
+import { RoomHeader } from "./components/RoomHeader";
+import { RoomSelector } from "./components/RoomSelector";
+import { CreateRoomModal } from "./components/CreateRoomModal";
+import { useChatSocket } from "./hooks/useChatSocket";
+import { useRooms } from "./hooks/useRooms";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const {
+    connectionStatus,
+    currentUser,
+    activeRoom,
+    users,
+    messages,
+    joinError,
+    sendError,
+    historyLoading,
+    historyError,
+    hasMoreHistory,
+    roomTransitioning,
+    join,
+    switchRoom,
+    sendMessage,
+    loadMoreHistory,
+  } = useChatSocket();
+
+  const { rooms, loadingRooms, roomsError, creatingRoom, createRoomError, refreshRooms, createRoom } = useRooms();
+
+  const [roomDrawerOpen, setRoomDrawerOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const previousConnectionStatus = useRef(connectionStatus);
+
+  useEffect(() => {
+    void refreshRooms();
+  }, [refreshRooms]);
+
+  // Refresca la lista de salas al recuperar el foco de la ventana (sin polling).
+  useEffect(() => {
+    function handleFocus() {
+      void refreshRooms();
+    }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [refreshRooms]);
+
+  // Refresca la lista tras reconectar (transición reconnecting -> connected).
+  useEffect(() => {
+    if (previousConnectionStatus.current === "reconnecting" && connectionStatus === "connected") {
+      void refreshRooms();
+    }
+    previousConnectionStatus.current = connectionStatus;
+  }, [connectionStatus, refreshRooms]);
+
+  function handleOpenRoomDrawer() {
+    setRoomDrawerOpen(true);
+    void refreshRooms();
+  }
+
+  async function handleSelectRoom(slug: string) {
+    setRoomDrawerOpen(false);
+    await switchRoom(slug);
+  }
+
+  async function handleCreateRoom(name: string) {
+    const room = await createRoom(name);
+    if (room) {
+      setCreateModalOpen(false);
+      setRoomDrawerOpen(false);
+      await switchRoom(room.slug);
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-shell">
+      <div className={`room-drawer-backdrop${roomDrawerOpen ? " room-drawer-backdrop--open" : ""}`} onClick={() => setRoomDrawerOpen(false)} />
+      <div className={`room-drawer${roomDrawerOpen ? " room-drawer--open" : ""}`}>
+        <RoomSelector
+          rooms={rooms}
+          activeRoomSlug={activeRoom?.slug}
+          loadingRooms={loadingRooms}
+          roomsError={roomsError}
+          disabled={roomTransitioning}
+          onSelectRoom={handleSelectRoom}
+          onOpenCreateRoom={() => setCreateModalOpen(true)}
+        />
+      </div>
 
-      <div className="ticks"></div>
+      <div className="chat-card">
+        <RoomHeader room={activeRoom} connectionStatus={connectionStatus} onOpenRoomDrawer={handleOpenRoomDrawer} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {currentUser && activeRoom ? (
+          <ChatRoom
+            currentUser={currentUser}
+            users={users}
+            messages={messages}
+            sendError={sendError}
+            historyLoading={historyLoading}
+            historyError={historyError}
+            hasMoreHistory={hasMoreHistory}
+            disabled={roomTransitioning}
+            onSend={sendMessage}
+            onLoadMoreHistory={loadMoreHistory}
+          />
+        ) : (
+          <JoinForm onJoin={join} error={joinError} submitting={roomTransitioning} />
+        )}
+      </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <CreateRoomModal
+        open={createModalOpen}
+        submitting={creatingRoom}
+        error={createRoomError}
+        onCreate={handleCreateRoom}
+        onClose={() => setCreateModalOpen(false)}
+      />
+    </div>
+  );
 }
 
-export default App
+export default App;

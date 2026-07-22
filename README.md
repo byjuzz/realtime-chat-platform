@@ -7,7 +7,7 @@ Monorepo de una aplicación de sala de chat en vivo, construido de forma increme
 - **Frontend**: React + Vite + TypeScript (`apps/web`)
 - **API**: Node.js + TypeScript + Express + Socket.IO (`apps/api`)
 - **Shared**: tipos y utilidades compartidas (`packages/shared`)
-- **Base de datos** (fase futura): PostgreSQL + Prisma
+- **Base de datos**: PostgreSQL + Prisma (`apps/api/prisma`)
 - **Infraestructura**: Ansible (`infra/ansible`), Kubernetes vía Kustomize (`infra/kubernetes`)
 - **Orquestación**: RKE2, con namespaces `chat-dev`, `chat-uat`, `chat-prod`
 
@@ -32,22 +32,84 @@ scripts                           Scripts auxiliares
 
 ## Estado del proyecto
 
-Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 1 — bootstrap del monorepo**
-(estructura, documentación inicial, esqueletos de frontend/API). Aún no se ha implementado
-el chat en tiempo real, la base de datos, Docker ni Kubernetes.
+Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 4 — chat con múltiples
+salas** (listar, crear, entrar, cambiar y salir de salas; presencia y mensajes aislados por
+sala). Aún no se ha implementado autenticación real, Docker, Kubernetes ni CI/CD.
 
 ## Desarrollo local
 
-Requisitos: Node.js >= 20, npm.
+Requisitos: Node.js >= 20, npm, PostgreSQL local (ver abajo).
 
 ```bash
 npm install
 npm run typecheck
 npm run lint
+npm run test
 npm run build
 ```
 
-Copia `.env.example` a `.env` y completa los valores locales (nunca commitear `.env`).
+Copia `.env.example` a `apps/api/.env` (variables de la API/Prisma) y completa los valores
+locales (nunca commitear `.env`). Ejemplo de `DATABASE_URL` (sin credenciales reales):
+```
+DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/realtime_chat_dev
+```
+
+### PostgreSQL local (Windows, sin Docker)
+
+1. Instalar PostgreSQL (ej. `winget install --id PostgreSQL.PostgreSQL.17`).
+2. Crear las bases de desarrollo y pruebas:
+   ```sql
+   CREATE DATABASE realtime_chat_dev;
+   CREATE DATABASE realtime_chat_test;
+   ```
+3. Aplicar migraciones y generar el cliente:
+   ```bash
+   npm run db:migrate:dev -w apps/api
+   ```
+4. Sembrar la sala general (idempotente, se puede correr varias veces):
+   ```bash
+   npm run db:seed -w apps/api
+   ```
+
+Otros comandos útiles (todos con `-w apps/api`): `db:generate`, `db:migrate:deploy`,
+`db:studio` (solo desarrollo, nunca producción).
+
+**Si una migración falla**: no ejecutar `prisma migrate reset` sin estar seguro de querer
+borrar todos los datos locales. Revisar el error de `prisma migrate dev`, corregir el schema
+o la migración generada, y volver a intentar. Ver [ADR-004](docs/adr/ADR-004-postgresql-prisma-persistence.md#riesgos-y-limitaciones)
+para más contexto.
+
+### Correr el chat localmente
+
+En dos terminales separadas:
+
+```bash
+npm run dev -w apps/api    # API + Socket.IO en http://localhost:3000
+npm run dev -w apps/web    # Frontend en http://localhost:5173
+```
+
+Abre `http://localhost:5173` en dos o más pestañas para probar el chat en tiempo real. Los
+mensajes y las salas persisten en PostgreSQL — sobreviven a un reinicio de `apps/api`. La
+presencia (quién está conectado ahora mismo) sigue en memoria, ver
+[ADR-003](docs/adr/ADR-003-in-memory-state-mvp.md),
+[ADR-004](docs/adr/ADR-004-postgresql-prisma-persistence.md) y
+[ADR-005](docs/adr/ADR-005-multi-room-chat.md).
+
+Usa el selector de salas (sidebar en desktop, drawer en móvil) para crear salas nuevas y
+cambiar entre ellas. Cada sala tiene su propio historial y su propia lista de conectados.
+
+> Nota de prueba manual: si abres varias pestañas del mismo navegador para simular usuarios
+> distintos, ten en cuenta que `localStorage` se comparte por origen, no por pestaña — usa
+> `localStorage.clear()` + recargar antes de unirte con un nombre distinto en cada pestaña,
+> o usa ventanas de incógnito separadas.
+
+### Pruebas de integración (requieren PostgreSQL local)
+
+```bash
+npm run test:integration -w apps/api
+```
+
+Corre contra `DATABASE_URL_TEST` (`realtime_chat_test`), separada de la base de desarrollo.
 
 ## Entornos
 
