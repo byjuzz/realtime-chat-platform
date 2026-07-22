@@ -111,6 +111,31 @@ npm run test:integration -w apps/api
 
 Corre contra `DATABASE_URL_TEST` (`realtime_chat_test`), separada de la base de desarrollo.
 
+## Docker Compose (modo alternativo, no reemplaza el desarrollo local)
+
+Levanta frontend + API + PostgreSQL contenerizados, con migraciones y seed automáticos:
+
+```bash
+cp .env.docker.example .env
+docker compose build
+docker compose up -d
+```
+
+Frontend en `http://localhost:8080` (o el `WEB_PORT` que definas), API en `http://localhost:3000`,
+PostgreSQL publicado en `55432` (para no chocar con tu instalación local de la Fase 3).
+
+Otros comandos:
+```bash
+docker compose ps
+docker compose logs -f [servicio]
+docker compose restart [servicio]
+docker compose run --rm migrate    # correr migraciones/seed a demanda
+docker compose down                # detiene contenedores, conserva el volumen
+docker compose down -v             # BORRA el volumen — nunca sin confirmarlo explícitamente
+```
+
+Ver [ADR-006](docs/adr/ADR-006-containerization.md) para las decisiones de diseño.
+
 ## Entornos
 
 | Ambiente | Namespace K8s | Propósito |
