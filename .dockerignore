@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/.env
+.env*
+!.env.docker.example
+.git
+.gitignore
+*.log
+.claude
+docs
+scripts
+infra
+apps/api/prisma/migrations/**/*.md

@@ -1,0 +1,94 @@
+name: realtime-chat
+
+networks:
+  chat-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: realtime-chat-postgres-data
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    networks:
+      - chat-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    networks:
+      - chat-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      SOCKET_CORS_ORIGIN: ${SOCKET_CORS_ORIGIN}
+      MESSAGE_HISTORY_DEFAULT_LIMIT: ${MESSAGE_HISTORY_DEFAULT_LIMIT:-50}
+      MESSAGE_HISTORY_MAX_LIMIT: ${MESSAGE_HISTORY_MAX_LIMIT:-100}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    networks:
+      - chat-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    networks:
+      - chat-net
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
