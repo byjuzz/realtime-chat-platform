@@ -38,3 +38,14 @@ se aprueba antes de tocar archivos.
 
 - Decisiones de arquitectura relevantes van como ADR en `docs/adr/`.
 - No hay CI/CD definido todavía (pendiente de elegir proveedor Git/CI).
+
+## Estrategia de ramas
+
+- `feature/*` (`feat/*`, `chore/*`, etc.) → `develop`: **squash merge**. El historial detallado
+  de commits de una feature no necesita preservarse en `develop`.
+- `develop` → `main`: **merge commit** (nunca squash). Esto mantiene a `main` como ancestro real
+  de `develop`, para que futuros PRs `develop → main` solo muestren cambios nuevos.
+- Si alguna vez se fusiona `develop → main` mediante squash por excepción, `main` debe
+  resincronizarse hacia `develop` inmediatamente después con un merge commit real
+  (`git merge --no-ff origin/main` en una rama `chore/sync-*`), para reconectar los historiales
+  sin reescribir commits ni usar `--force`.
