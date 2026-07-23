@@ -32,13 +32,39 @@ scripts                           Scripts auxiliares
 
 ## Estado del proyecto
 
-Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 4 — chat con múltiples
-salas** (listar, crear, entrar, cambiar y salir de salas; presencia y mensajes aislados por
-sala). Aún no se ha implementado autenticación real, Docker, Kubernetes ni CI/CD.
+El proyecto se desarrolla por fases controladas. Las Fases 1 a 5 están
+completadas, incluyendo chat en tiempo real, persistencia con PostgreSQL,
+múltiples salas y ejecución contenerizada mediante Docker y Docker
+Compose.
+
+Fase actual: **Fase 6 — calidad, seguridad básica e integración
+continua**. La Fase 6.0 alinea el runtime con Node.js 24 LTS antes de
+implementar GitHub Actions.
+
+La autenticación real, Kubernetes y el despliegue continuo todavía no
+se han implementado.
 
 ## Desarrollo local
 
-Requisitos: Node.js >= 20, npm, PostgreSQL local (ver abajo).
+Requisitos: Node.js **24.18.0 LTS** (runtime estándar del proyecto, ver `.nvmrc`), npm,
+PostgreSQL local (ver abajo).
+
+Verifica tu versión activa con:
+
+```bash
+node --version   # debe mostrar v24.18.0
+```
+
+Con un gestor de versiones funcional (`nvm`, `fnm`, etc.), usa `nvm use` / `fnm use` para
+activar automáticamente la versión indicada en `.nvmrc`.
+
+En algunos entornos Windows, la activación automática de fnm puede fallar por problemas al
+resolver junctions. En ese caso puede utilizarse `fnm exec --using=24.18.0 -- <comando>`.
+Esta limitación local no afecta Docker ni GitHub Actions.
+
+Otras versiones de Node pueden permanecer instaladas en el sistema; no son el runtime
+soportado del proyecto. Docker y la futura integración continua usan la misma línea
+Node 24.18.0 (`node:24.18.0-alpine3.24`).
 
 ```bash
 npm install
