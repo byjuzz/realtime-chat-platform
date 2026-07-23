@@ -32,9 +32,17 @@ scripts                           Scripts auxiliares
 
 ## Estado del proyecto
 
-Este proyecto se desarrolla por fases controladas. Fase actual: **Fase 4 — chat con múltiples
-salas** (listar, crear, entrar, cambiar y salir de salas; presencia y mensajes aislados por
-sala). Aún no se ha implementado autenticación real, Docker, Kubernetes ni CI/CD.
+El proyecto se desarrolla por fases controladas. Las Fases 1 a 5 están
+completadas, incluyendo chat en tiempo real, persistencia con PostgreSQL,
+múltiples salas y ejecución contenerizada mediante Docker y Docker
+Compose.
+
+Fase actual: **Fase 6 — calidad, seguridad básica e integración
+continua**. La Fase 6.0 alinea el runtime con Node.js 24 LTS antes de
+implementar GitHub Actions.
+
+La autenticación real, Kubernetes y el despliegue continuo todavía no
+se han implementado.
 
 ## Desarrollo local
 
