@@ -1,7 +1,7 @@
 # Build context: raíz del monorepo (docker-compose.yml usa `context: .`),
 # porque apps/api depende de packages/shared vía npm workspaces.
 
-FROM node:20-alpine AS deps
+FROM node:24.18.0-alpine3.24 AS deps
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/package.json
@@ -16,7 +16,7 @@ RUN npm run build -w packages/shared \
     && npx prisma generate --schema apps/api/prisma/schema.prisma \
     && npm run build -w apps/api
 
-FROM node:20-alpine AS runtime
+FROM node:24.18.0-alpine3.24 AS runtime
 ENV NODE_ENV=production
 WORKDIR /repo
 

@@ -28,6 +28,19 @@ se aprueba antes de tocar archivos.
 - Infra: Ansible (`infra/ansible`), Kubernetes/Kustomize (`infra/kubernetes`), RKE2
 - Ambientes: `chat-dev`, `chat-uat`, `chat-prod`
 
+## Runtime Node.js
+
+- Runtime estándar del proyecto: **Node.js 24.18.0 LTS** (fijado en `.nvmrc` y en
+  `engines.node` de `package.json`: `>=24.18.0 <25`).
+- Docker (`node:24.18.0-alpine3.24`) y la futura CI usan la misma línea Node 24.18.0.
+- Verificación: `node --version` debe mostrar `v24.18.0`.
+- Con un gestor de versiones funcional, `nvm use` / `fnm use` activan `.nvmrc` automáticamente.
+- En algunos entornos Windows, la activación automática de fnm puede fallar por problemas al
+  resolver junctions. En ese caso puede utilizarse `fnm exec --using=24.18.0 -- <comando>`.
+  Esta limitación local no afecta Docker ni GitHub Actions.
+- Otras versiones de Node pueden permanecer instaladas globalmente en la máquina; no son el
+  runtime soportado del proyecto.
+
 ## Entorno de despliegue
 
 - Desarrollo: máquina Windows local (Node/npm disponibles).

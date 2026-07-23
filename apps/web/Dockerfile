@@ -1,6 +1,6 @@
 # Build context: raíz del monorepo (apps/web depende de packages/shared).
 
-FROM node:20-alpine AS deps
+FROM node:24.18.0-alpine3.24 AS deps
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/package.json

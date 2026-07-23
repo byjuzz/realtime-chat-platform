@@ -38,7 +38,25 @@ sala). Aún no se ha implementado autenticación real, Docker, Kubernetes ni CI/
 
 ## Desarrollo local
 
-Requisitos: Node.js >= 20, npm, PostgreSQL local (ver abajo).
+Requisitos: Node.js **24.18.0 LTS** (runtime estándar del proyecto, ver `.nvmrc`), npm,
+PostgreSQL local (ver abajo).
+
+Verifica tu versión activa con:
+
+```bash
+node --version   # debe mostrar v24.18.0
+```
+
+Con un gestor de versiones funcional (`nvm`, `fnm`, etc.), usa `nvm use` / `fnm use` para
+activar automáticamente la versión indicada en `.nvmrc`.
+
+En algunos entornos Windows, la activación automática de fnm puede fallar por problemas al
+resolver junctions. En ese caso puede utilizarse `fnm exec --using=24.18.0 -- <comando>`.
+Esta limitación local no afecta Docker ni GitHub Actions.
+
+Otras versiones de Node pueden permanecer instaladas en el sistema; no son el runtime
+soportado del proyecto. Docker y la futura integración continua usan la misma línea
+Node 24.18.0 (`node:24.18.0-alpine3.24`).
 
 ```bash
 npm install
