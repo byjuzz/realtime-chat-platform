@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: CI / Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Versiones
+        run: |
+          node --version
+          npm --version
+
+      - name: Instalación reproducible
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  integration:
+    name: CI / Integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # Credenciales exclusivas del contenedor temporal de este job: no
+      # protegen ningún recurso real, la base se destruye al terminar el
+      # runner. No son secretos.
+      DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/realtime_chat_ci
+      DATABASE_URL_TEST: postgresql://ci_user:ci_password@127.0.0.1:5432/realtime_chat_ci
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: realtime_chat_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d realtime_chat_ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Versión de Node
+        run: node --version
+
+      - name: Instalación reproducible
+        run: npm ci
+
+      - name: Prisma generate
+        run: npm run db:generate -w apps/api
+
+      - name: Prisma migrate deploy
+        run: npm run db:migrate:deploy -w apps/api
+
+      - name: Pruebas de integración
+        run: npm run test:integration -w apps/api
+
+      - name: Diagnóstico — estado de PostgreSQL
+        if: failure()
+        run: docker ps -a --filter "ancestor=postgres:17-alpine"
+
+      - name: Diagnóstico — logs de PostgreSQL
+        if: failure()
+        run: |
+          CID=$(docker ps -aq --filter "ancestor=postgres:17-alpine" | head -n1)
+          if [ -n "$CID" ]; then
+            docker logs "$CID"
+          else
+            echo "No se encontró el contenedor de PostgreSQL del service container."
+          fi
+
+  required:
+    name: CI / Required
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always()
+    needs:
+      - quality
+      - integration
+    steps:
+      - name: Evaluar resultados
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+        run: |
+          echo "Quality: ${QUALITY_RESULT}"
+          echo "Integration: ${INTEGRATION_RESULT}"
+
+          if [ "$QUALITY_RESULT" = "success" ] && [ "$INTEGRATION_RESULT" = "success" ]; then
+            exit 0
+          fi
+          exit 1
