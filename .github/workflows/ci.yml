@@ -127,6 +127,194 @@ jobs:
             echo "No se encontró el contenedor de PostgreSQL del service container."
           fi
 
+  docker:
+    name: CI / Docker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: realtime-chat-ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Instalación reproducible (necesaria para el smoke test Socket.IO)
+        run: npm ci
+
+      - name: Crear .env temporal (valores ficticios, exclusivos de CI)
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=ci_docker_user
+          POSTGRES_PASSWORD=ci_docker_password
+          POSTGRES_DB=realtime_chat_ci_docker
+          POSTGRES_PORT=55432
+          API_PORT=3000
+          DATABASE_URL=postgresql://ci_docker_user:ci_docker_password@postgres:5432/realtime_chat_ci_docker
+          SOCKET_CORS_ORIGIN=http://localhost:8080
+          MESSAGE_HISTORY_DEFAULT_LIMIT=50
+          MESSAGE_HISTORY_MAX_LIMIT=100
+          WEB_PORT=8080
+          VITE_API_URL=http://localhost:3000
+          VITE_SOCKET_URL=http://localhost:3000
+          EOF
+
+      - name: Versiones de Docker
+        run: |
+          docker version
+          docker compose version
+
+      - name: Validar docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Construir imágenes
+        run: docker compose build
+
+      - name: Levantar el stack
+        run: docker compose up -d
+
+      - name: Esperar a que el stack esté saludable
+        run: |
+          set -euo pipefail
+
+          wait_for_healthy() {
+            local service="$1"
+            local max_attempts=40
+            local attempt=0
+            local cid status
+            until [ "$attempt" -ge "$max_attempts" ]; do
+              cid="$(docker compose ps -q "$service")"
+              if [ -n "$cid" ]; then
+                status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "sin-healthcheck")"
+                if [ "$status" = "healthy" ]; then
+                  echo "$service: healthy (intento $attempt)"
+                  return 0
+                fi
+              fi
+              attempt=$((attempt + 1))
+              sleep 3
+            done
+            echo "Timeout esperando que $service esté healthy"
+            docker compose ps -a
+            return 1
+          }
+
+          wait_for_exit_zero() {
+            local service="$1"
+            local max_attempts=40
+            local attempt=0
+            local cid status code
+            until [ "$attempt" -ge "$max_attempts" ]; do
+              cid="$(docker compose ps -a -q "$service")"
+              if [ -n "$cid" ]; then
+                status="$(docker inspect -f '{{.State.Status}}' "$cid")"
+                if [ "$status" = "exited" ]; then
+                  code="$(docker inspect -f '{{.State.ExitCode}}' "$cid")"
+                  if [ "$code" = "0" ]; then
+                    echo "$service: completado con código 0 (intento $attempt)"
+                    return 0
+                  fi
+                  echo "$service terminó con código $code"
+                  docker compose logs --no-color "$service"
+                  return 1
+                fi
+              fi
+              attempt=$((attempt + 1))
+              sleep 3
+            done
+            echo "Timeout esperando que $service termine"
+            docker compose ps -a
+            return 1
+          }
+
+          wait_for_healthy postgres
+          wait_for_exit_zero migrate
+          wait_for_healthy api
+          wait_for_healthy web
+
+      - name: Estado de los contenedores
+        run: docker compose ps -a
+
+      - name: Verificar versión de Node dentro de la API
+        run: docker compose exec -T api node --version
+
+      - name: Smoke tests HTTP vía Nginx
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/ -o /dev/null
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/health
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/ready
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/api/rooms
+
+      - name: Smoke test Socket.IO (vía Nginx)
+        run: node scripts/ci/socket-smoke.mjs
+        env:
+          SMOKE_BASE_URL: http://127.0.0.1:8080
+
+      - name: Validar idempotencia de migrate/seed
+        run: docker compose run --rm migrate
+
+      - name: Re-verificar endpoints tras la validación de idempotencia
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/ready
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/api/rooms
+          docker compose ps -a
+
+      - name: Diagnóstico — estado de contenedores
+        if: failure()
+        run: |
+          mkdir -p ci-artifacts/docker
+          docker compose ps -a | tee ci-artifacts/docker/ps.txt
+
+      - name: Diagnóstico — logs
+        if: failure()
+        run: |
+          mkdir -p ci-artifacts/docker
+          docker compose logs --no-color postgres > ci-artifacts/docker/postgres.log 2>&1 || true
+          docker compose logs --no-color migrate > ci-artifacts/docker/migrate.log 2>&1 || true
+          docker compose logs --no-color api > ci-artifacts/docker/api.log 2>&1 || true
+          docker compose logs --no-color web > ci-artifacts/docker/web.log 2>&1 || true
+
+      - name: Diagnóstico — resumen de healthchecks
+        if: failure()
+        run: |
+          mkdir -p ci-artifacts/docker
+          for service in postgres api web; do
+            cid="$(docker compose ps -a -q "$service" || true)"
+            if [ -n "$cid" ]; then
+              {
+                echo "=== $service ==="
+                docker inspect -f '{{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$cid"
+              } >> ci-artifacts/docker/health-summary.txt
+            fi
+          done
+
+      - name: Subir artefactos de diagnóstico
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docker-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/docker/
+          retention-days: 5
+
+      - name: Cleanup del stack temporal
+        if: always()
+        run: |
+          # docker compose down -v se usa aquí porque este runner es
+          # temporal, COMPOSE_PROJECT_NAME es exclusivo de esta ejecución y
+          # los volúmenes pertenecen únicamente a este job. NO ejecutar este
+          # comando contra un stack de desarrollo local, UAT o producción.
+          docker compose down -v --remove-orphans || true
+          rm -f .env
+
   required:
     name: CI / Required
     runs-on: ubuntu-24.04
@@ -135,16 +323,19 @@ jobs:
     needs:
       - quality
       - integration
+      - docker
     steps:
       - name: Evaluar resultados
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
         run: |
           echo "Quality: ${QUALITY_RESULT}"
           echo "Integration: ${INTEGRATION_RESULT}"
+          echo "Docker: ${DOCKER_RESULT}"
 
-          if [ "$QUALITY_RESULT" = "success" ] && [ "$INTEGRATION_RESULT" = "success" ]; then
+          if [ "$QUALITY_RESULT" = "success" ] && [ "$INTEGRATION_RESULT" = "success" ] && [ "$DOCKER_RESULT" = "success" ]; then
             exit 0
           fi
           exit 1
