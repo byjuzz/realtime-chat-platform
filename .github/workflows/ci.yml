@@ -49,6 +49,9 @@ jobs:
       - name: Instalación reproducible
         run: npm ci
 
+      - name: Prisma generate
+        run: npm run db:generate -w apps/api
+
       - name: Lint
         run: npm run lint
 
