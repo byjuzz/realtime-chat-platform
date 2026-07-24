@@ -89,3 +89,54 @@ jobs:
 
       - name: Pruebas de integración
         run: npm run test:integration -w apps/api
+
+  docker:
+    name: CI / Docker
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Crear .env temporal (valores ficticios, exclusivos de CI)
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_USER=ci_docker_user
+          POSTGRES_PASSWORD=ci_docker_password
+          POSTGRES_DB=realtime_chat_ci_docker
+          POSTGRES_PORT=55432
+          API_PORT=3000
+          DATABASE_URL=postgresql://ci_docker_user:ci_docker_password@postgres:5432/realtime_chat_ci_docker
+          SOCKET_CORS_ORIGIN=http://localhost:8080
+          MESSAGE_HISTORY_DEFAULT_LIMIT=50
+          MESSAGE_HISTORY_MAX_LIMIT=100
+          WEB_PORT=8080
+          VITE_API_URL=http://localhost:3000
+          VITE_SOCKET_URL=http://localhost:3000
+          EOF
+
+      - name: Construir imágenes
+        run: docker compose build
+
+      - name: Levantar el stack
+        run: docker compose up -d
+
+      - name: Esperar a que el stack esté saludable
+        run: bash scripts/ci/wait-for-docker.sh
+
+      - name: Estado de los contenedores
+        run: docker compose ps -a
+
+      - name: Cleanup del stack temporal
+        if: always()
+        run: |
+          # docker compose down -v es seguro aquí porque el runner es
+          # temporal y se destruye igual al terminar. NUNCA copiar este
+          # comando para ejecutarlo contra un stack local persistente.
+          docker compose down -v --remove-orphans || true
