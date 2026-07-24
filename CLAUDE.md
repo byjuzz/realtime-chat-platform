@@ -47,10 +47,29 @@ se aprueba antes de tocar archivos.
 - Despliegue: VM Ubuntu 24.04 (`devops-lab`) dentro de VirtualBox, accesible por SSH
   (puerto reenviado `localhost:2222`). RKE2 se instalará ahí en una fase futura.
 
+## Integración Continua (CI)
+
+> CI propuesta/en proceso de validación — no se afirma que esté operativa hasta observar
+> ejecuciones reales en GitHub Actions.
+
+- Workflows en `.github/workflows/`: `ci.yml` (jobs `CI / Quality`, `CI / Integration`,
+  `CI / Docker`, `CI / Required`) y `dependency-review.yml` (`CI / Dependency Review`).
+- Triggers: `pull_request` hacia `develop`/`main` (incluye borradores), `push` a
+  `develop`/`main`, y `workflow_dispatch` manual. `dependency-review.yml` solo en
+  `pull_request`.
+- Check final candidato a required en un futuro ruleset: `CI / Required` (agrega los tres
+  jobs funcionales; falla si cualquiera no es `success`, sin configurarse todavía como
+  required check en esta fase).
+- `.github/dependabot.yml`: mantenimiento automatizado semanal (npm y GitHub Actions), no es
+  un check de CI.
+- Solo **CI**, sin CD: ningún workflow publica imágenes, hace push a un registro, ni toca
+  `devops-lab`/Ansible/RKE2/Kubernetes.
+- Detalle de diseño: [ADR-007](docs/adr/ADR-007-continuous-integration.md). Diagnóstico de
+  fallos: [docs/ci/troubleshooting.md](docs/ci/troubleshooting.md).
+
 ## Convenciones
 
 - Decisiones de arquitectura relevantes van como ADR en `docs/adr/`.
-- No hay CI/CD definido todavía (pendiente de elegir proveedor Git/CI).
 
 ## Estrategia de ramas
 

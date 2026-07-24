@@ -162,6 +162,36 @@ docker compose down -v             # BORRA el volumen — nunca sin confirmarlo 
 
 Ver [ADR-006](docs/adr/ADR-006-containerization.md) para las decisiones de diseño.
 
+## Integración Continua (CI)
+
+> CI propuesta/en proceso de validación — no se afirma que esté operativa hasta observar
+> ejecuciones reales en GitHub Actions.
+
+Workflows en `.github/workflows/`:
+
+- **`ci.yml`** ("CI"): se dispara en `pull_request` hacia `develop`/`main` (incluye PRs en
+  borrador) y en `push` a `develop`/`main`, además de `workflow_dispatch` manual. Jobs:
+  - `CI / Quality` — `npm ci`, lint, typecheck, pruebas unitarias, build.
+  - `CI / Integration` — pruebas de integración de `apps/api` contra un PostgreSQL temporal
+    del propio job.
+  - `CI / Docker` — construye y levanta el `docker-compose.yml` real, valida healthchecks,
+    endpoints REST y Socket.IO de extremo a extremo (a través de Nginx), e idempotencia de
+    `migrate`/seed.
+  - `CI / Required` — check final agregado: pasa solo si Quality, Integration y Docker
+    terminaron los tres en `success`.
+- **`dependency-review.yml`** ("Dependency Review"): en `pull_request` hacia `develop`/`main`,
+  bloquea dependencias nuevas con severidad `high`/`critical`.
+
+Mantenimiento automatizado (no es un check de CI): `.github/dependabot.yml` abre PRs
+semanales de actualización de dependencias npm y de Actions.
+
+Esta fase implementa **solo CI**. No existe todavía CD (entrega/despliegue continuo): no se
+publican imágenes, no hay push a ningún registro, y no se toca `devops-lab`, Ansible, RKE2 ni
+Kubernetes desde estos workflows.
+
+Detalle completo de diseño en [ADR-007](docs/adr/ADR-007-continuous-integration.md); guía de
+diagnóstico de fallos en [docs/ci/troubleshooting.md](docs/ci/troubleshooting.md).
+
 ## Entornos
 
 | Ambiente | Namespace K8s | Propósito |
