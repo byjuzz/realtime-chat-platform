@@ -126,6 +126,31 @@ en vez de dejarlo dar la cara con un fallo explícito). Solo pasa cuando los tre
 exactamente `success`; cualquier `failure`, `cancelled` o `skipped` lo hace fallar. Candidato a
 required check en un futuro ruleset — todavía no configurado.
 
+## Enforcement: ruleset `Require CI checks - develop` (Fase 6.2)
+
+Ruleset de rama independiente (no modifica el `protect-develop` preexistente), target
+`refs/heads/develop`, `enforcement: active`, `bypass_actors` vacío — nadie puede saltarse la
+regla, ni siquiera administradores. Regla `required_status_checks`, con:
+
+- Checks exigidos: `CI / Required` y `CI / Dependency Review` (fuente fijada explícitamente a
+  la app "GitHub Actions" vía `integration_id`, no "any source").
+- `strict_required_status_checks_policy: true` — el PR debe evaluarse contra la versión
+  actual de `develop` (equivalente a "Require branches to be up to date before merging").
+
+No incluye required reviews, merge queue, signed commits, code scanning ni restricciones de
+rutas/nombres — esas responsabilidades quedan fuera de alcance de este ruleset a propósito.
+
+**Validado con una prueba controlada real** (no solo configurado, sino comprobado en vivo):
+un PR con un fallo unitario intencional en `apps/api` hizo fallar `CI / Quality`; `CI / Required`
+propagó ese fallo correctamente (`needs.quality.result == failure`); GitHub marcó el PR como
+`mergeStateStatus: BLOCKED` citando exactamente la regla `required_status_checks` de este
+ruleset. Tras retirar el fallo y quedar los cinco checks en verde, el bloqueo desapareció sin
+necesidad de bypass.
+
+**`main` queda deliberadamente fuera de alcance**: todavía no contiene los workflows de CI
+(`ci.yml`, `dependency-review.yml`), así que exigir esos checks ahí no tendría sentido — se
+protegerá con su propio ruleset después de promover la CI a `main`.
+
 ## `Dependency Review` vs. otras herramientas
 
 - **Dependency Review**: compara las dependencias de un PR contra su base, bloquea si
@@ -146,7 +171,8 @@ required check en un futuro ruleset — todavía no configurado.
 
 ## Limitaciones
 
-- Sin required status checks ni rulesets de rama configurados todavía.
+- `main` todavía sin required status checks (ver sección de enforcement arriba — pendiente
+  hasta promover la CI a `main`).
 - Sin cobertura de pruebas obligatoria.
 - El smoke test de Socket.IO valida un único room (`general`); no valida aislamiento cruzado
   entre dos salas distintas.
@@ -161,7 +187,8 @@ requiere un pipeline de CD separado, todavía sin construir.
 
 ## Decisiones futuras
 
-- Configurar required status checks y un ruleset de rama sobre `CI / Required`.
+- Configurar un ruleset equivalente para `main`, una vez que `main` contenga los workflows de
+  CI (`ci.yml`, `dependency-review.yml`, scripts y documentación asociada).
 - Evaluar `concurrency:` también en `dependency-review.yml`.
 - Evaluar CodeQL y escaneo de imágenes como jobs adicionales.
 - Diseñar CD como fase separada, después de que Ubuntu/RKE2/Kubernetes estén implementados.

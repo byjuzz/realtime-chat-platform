@@ -30,6 +30,16 @@ Ver también: [ADR-007 — Integración Continua con GitHub Actions](../adr/ADR-
 | Dependency Review bloquea el PR | El PR introduce una dependencia nueva con vulnerabilidad `high`/`critical` | Revisar el resumen que la Action publica en el PR; actualizar o reemplazar la dependencia | Bajar `fail-on-severity` para que deje de bloquear |
 | Dependency Review falla con "Dependency review is not supported on this repository" | El Dependency Graph del repositorio no está habilitado/poblado (Settings → Security → Dependency graph) | Verificar en Insights → Dependency graph que aparezcan dependencias listadas; confirmar el estado del endpoint `GET /repos/{owner}/{repo}/dependency-graph/sbom` | Bajar la severidad o desactivar el workflow para "que pase" |
 | Action no encontrada / SHA inválido | Typo al fijar el SHA; muy raro: el SHA fue eliminado del historial del repo de la Action | Verificar contra el repositorio oficial: `gh api repos/<owner>/<action>/commits/<tag>` | Volver a un tag flotante (`@v5`, `@main`) |
+| PR hacia `develop` bloqueado ("Required" en el merge box) | `CI / Required` y/o `CI / Dependency Review` no están en `success` — el ruleset `Require CI checks - develop` lo exige explícitamente (`bypass_actors` vacío, nadie puede saltárselo) | Corregir la causa raíz del check que falla (ver las filas de esta tabla); una vez en verde, el bloqueo desaparece solo | Usar bypass administrativo; bajar la severidad o quitar el check del ruleset para "que pase" |
+
+## Enforcement en `develop`: ruleset `Require CI checks - develop`
+
+Validado en la Fase 6.2 con una prueba controlada real: un PR con un fallo unitario
+intencional en `apps/api` hizo fallar `CI / Quality` → `CI / Required` propagó el fallo
+(`needs.quality.result == failure`) → GitHub marcó el PR como `mergeStateStatus: BLOCKED`,
+citando la regla `required_status_checks` de este ruleset. Al retirar el fallo y quedar los
+cinco checks en verde, el bloqueo desapareció sin usar bypass. `main` queda fuera de este
+ruleset hasta que reciba los workflows de CI.
 
 ## Diagnóstico disponible por job
 
