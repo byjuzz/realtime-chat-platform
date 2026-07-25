@@ -1,15 +1,23 @@
 name: CI
+# Prueba en vivo de concurrency: este comentario dispara un segundo push
+# mientras el primero sigue corriendo.
 
 on:
   push:
     branches:
       - develop
+      - main
   pull_request:
     branches:
       - develop
+      - main
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
