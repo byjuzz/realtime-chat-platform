@@ -104,6 +104,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Instalar dependencias (necesario para el smoke test de Socket.IO)
+        run: npm ci
+
       - name: Crear .env temporal (valores ficticios, exclusivos de CI)
         run: |
           cat > .env <<'EOF'
@@ -132,6 +135,21 @@ jobs:
 
       - name: Estado de los contenedores
         run: docker compose ps -a
+
+      - name: Verificar versión de Node dentro de la API
+        run: docker compose exec -T api node --version
+
+      - name: Smoke tests HTTP vía Nginx
+        run: |
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/ -o /dev/null
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/health
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/ready
+          curl --fail --show-error --max-time 10 http://127.0.0.1:8080/api/rooms
+
+      - name: Smoke test Socket.IO (vía Nginx)
+        run: node scripts/ci/socket-smoke.mjs
+        env:
+          SMOKE_BASE_URL: http://127.0.0.1:8080
 
       - name: Cleanup del stack temporal
         if: always()
