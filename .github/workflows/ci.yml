@@ -158,3 +158,27 @@ jobs:
           # temporal y se destruye igual al terminar. NUNCA copiar este
           # comando para ejecutarlo contra un stack local persistente.
           docker compose down -v --remove-orphans || true
+
+  required:
+    name: CI / Required
+    runs-on: ubuntu-24.04
+    if: always()
+    needs:
+      - quality
+      - integration
+      - docker
+    steps:
+      - name: Evaluar resultados
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
+        run: |
+          echo "Quality: ${QUALITY_RESULT}"
+          echo "Integration: ${INTEGRATION_RESULT}"
+          echo "Docker: ${DOCKER_RESULT}"
+
+          if [ "$QUALITY_RESULT" = "success" ] && [ "$INTEGRATION_RESULT" = "success" ] && [ "$DOCKER_RESULT" = "success" ]; then
+            exit 0
+          fi
+          exit 1
