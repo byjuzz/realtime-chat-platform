@@ -32,17 +32,21 @@ scripts                           Scripts auxiliares
 
 ## Estado del proyecto
 
-El proyecto se desarrolla por fases controladas. Las Fases 1 a 5 están
-completadas, incluyendo chat en tiempo real, persistencia con PostgreSQL,
-múltiples salas y ejecución contenerizada mediante Docker y Docker
-Compose.
+El proyecto se desarrolla por fases controladas. La **Fase 6** está completa: runtime
+alineado a Node.js 24 LTS (6.0), Integración Continua con GitHub Actions (6.1), y
+`develop` protegida mediante required status checks (6.2).
 
-Fase actual: **Fase 6 — calidad, seguridad básica e integración
-continua**. La Fase 6.0 alinea el runtime con Node.js 24 LTS antes de
-implementar GitHub Actions.
+Fase actual: **Fase 7.0 — diseño de infraestructura como código** (Ansible + RKE2). Es una
+fase de auditoría y diseño únicamente: se auditó la VM `devops-lab` (Ubuntu 24.04) de forma
+no destructiva y se documentó la arquitectura objetivo — **Ansible no está instalado,
+RKE2 no está instalado, Kubernetes no existe todavía, y GitHub Actions no tiene acceso a la
+VM**. Próxima fase: 7.1, preparación del controlador Ansible.
 
-La autenticación real, Kubernetes y el despliegue continuo todavía no
-se han implementado.
+Ver [ADR-008](docs/adr/ADR-008-infrastructure-as-code-with-ansible.md), el
+[plan de arquitectura](docs/architecture/ansible-rke2-infrastructure-plan.md) y el
+[runbook de auditoría](docs/runbooks/ubuntu-rke2-readiness-audit.md).
+
+La autenticación real, Kubernetes y el despliegue continuo todavía no se han implementado.
 
 ## Desarrollo local
 
