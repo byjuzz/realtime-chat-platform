@@ -1,4 +1,6 @@
 name: CI
+# Prueba en vivo de concurrency: este comentario dispara un segundo push
+# mientras el primero sigue corriendo.
 
 on:
   push:
