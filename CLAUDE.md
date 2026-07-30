@@ -54,14 +54,34 @@ se aprueba antes de tocar archivos.
 - Triggers: `push`/`pull_request` hacia `develop`/`main`, más `workflow_dispatch` manual.
   `dependency-review.yml` solo en `pull_request`.
 - `concurrency:` en `ci.yml` cancela ejecuciones obsoletas del mismo PR/rama.
-- Check final candidato a required en un futuro ruleset: `CI / Required` (agrega los tres
-  jobs funcionales; no configurado todavía como required check).
+- `CI / Required` (agrega Quality+Integration+Docker) y `CI / Dependency Review` son
+  **required status checks obligatorios en `develop`**, vía el ruleset
+  `Require CI checks - develop` (Fase 6.2) — sin bypass, sin excepciones. `main` todavía no
+  tiene este ruleset (no tiene los workflows de CI todavía).
 - `.github/dependabot.yml`: mantenimiento automatizado semanal (npm y GitHub Actions), no es
   un check de CI.
 - Solo **CI**, sin CD: ningún workflow publica imágenes, hace push a un registro, ni toca
   `devops-lab`/Ansible/RKE2/Kubernetes.
 - Detalle de diseño: [ADR-007](docs/adr/ADR-007-continuous-integration.md). Diagnóstico de
   fallos: [docs/ci/troubleshooting.md](docs/ci/troubleshooting.md).
+
+## Infraestructura como código (Ansible / RKE2)
+
+- Estado: **diseño únicamente (Fase 7.0)**. Ansible no está instalado (ni en un controlador
+  ni en `devops-lab`), RKE2 no está instalado, Kubernetes no existe todavía, y GitHub Actions
+  no tiene acceso a `devops-lab`.
+- `devops-lab` fue auditada de forma no destructiva (solo comandos de lectura por SSH) —
+  resultado: LISTO CON RIESGOS. Ver
+  [runbook de auditoría](docs/runbooks/ubuntu-rke2-readiness-audit.md) para el detalle
+  completo y un checklist general reutilizable.
+- Decisión y versiones propuestas: [ADR-008](docs/adr/ADR-008-infrastructure-as-code-with-ansible.md).
+  Arquitectura y separación de responsabilidades:
+  [plan de infraestructura](docs/architecture/ansible-rke2-infrastructure-plan.md).
+- Separación estricta: Ansible administra el sistema operativo y la instalación de RKE2;
+  Kubernetes administra los workloads. Ninguna herramienta invade el territorio de la otra.
+- Próxima fase: 7.1, preparación del controlador Ansible (WSL con distro de propósito
+  general — hoy solo existe la distro interna `docker-desktop`, no utilizable como
+  controlador).
 
 ## Convenciones
 
