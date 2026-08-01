@@ -1,0 +1,23 @@
+# Copiar a hosts.local.yml (ignorado por git) dentro de este mismo directorio.
+#
+# Arquitectura de este laboratorio (Fase 7.1, ver ADR-008): el controlador de
+# Ansible corre DENTRO de devops-lab — no en un WSL/máquina externa separada.
+# Esa fue una decisión explícita: el host que ejecuta el laboratorio no tiene
+# recursos de sobra para un controlador aparte, y la estrategia de recuperación
+# aceptada es "si la VM se rompe, se reconstruye desde cero" en vez de depender
+# de resiliencia entre controlador y nodo.
+#
+# Por eso se usa ansible_connection: local en vez de SSH — Ansible ejecuta las
+# tareas directamente en la máquina donde corre, sin saltar por red.
+
+all:
+  children:
+    rke2_servers:
+      hosts:
+        devops-lab:
+          ansible_connection: local
+          # ansible_playbook_python es una variable "mágica" que apunta al Python
+          # que está corriendo ansible-playbook en este momento (el del venv, si lo
+          # activaste antes) — a diferencia de un fact remoto, no depende de haberse
+          # conectado/recopilado facts primero, evitando una referencia circular.
+          ansible_python_interpreter: "{{ ansible_playbook_python }}"

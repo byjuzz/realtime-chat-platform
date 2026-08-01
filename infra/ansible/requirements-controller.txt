@@ -1,0 +1,13 @@
+# Versiones fijadas del controlador Ansible (Fase 7.1).
+# Instalar dentro de un entorno virtual, nunca en el Python del sistema:
+#   python3 -m venv ~/.venvs/realtime-chat-ansible
+#   ~/.venvs/realtime-chat-ansible/bin/pip install -r requirements-controller.txt
+#
+# ansible-core: última versión de parche de la serie 2.20 (propuesta en ADR-008).
+# Existe ya una serie mayor (2.21.x) al momento de escribir esto; no se salta
+# silenciosamente a ella — actualizar de serie mayor es una decisión aparte.
+ansible-core==2.20.7
+
+# ansible-lint: última versión estable al momento de instalar, verificada
+# compatible con ansible-core==2.20.7 sin conflictos de dependencias.
+ansible-lint==26.6.0

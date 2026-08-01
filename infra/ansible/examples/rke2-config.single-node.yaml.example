@@ -1,0 +1,66 @@
+# Ejemplo conceptual de /etc/rancher/rke2/config.yaml para un nodo único
+# (server + workloads). NO se copia automáticamente a ningún lado, NO lo
+# consume ningún playbook todavía — es solo referencia y documentación,
+# ver docs/learning/rke2-from-zero.md y ADR-008.
+#
+# Regla del proyecto: ninguna opción se agrega "por si acaso". Cada línea de
+# abajo tiene una razón concreta explicada en el comentario que la acompaña.
+# Todo lo que se omite, se omite a propósito (queda en su valor por defecto).
+
+# El kubeconfig administrativo que RKE2 genera (rke2.yaml) queda legible
+# SOLO por su dueño (root). Sin esto, el default es más permisivo de lo
+# necesario para un archivo que da control total del clúster.
+write-kubeconfig-mode: "0600"
+
+# Subject Alternative Names del certificado TLS de la API. Sin esto, conectar
+# por un nombre/IP distinto al que RKE2 detecta solo (ej. la IP de la VM
+# vista desde fuera, si algún día se administra desde otra máquina) hace que
+# el cliente rechace el certificado como inválido.
+# <placeholder> — no es una IP ni un hostname real, se define al instalar.
+tls-san:
+  - "<hostname-o-ip-administrativa>"
+
+# Explícito aunque sea el valor por defecto de RKE2 — documenta la decisión
+# en vez de dejarla implícita. Canal = Flannel (overlay VXLAN) + Calico
+# (políticas de red). Ver docs/learning/rke2-from-zero.md, sección CNI.
+cni: canal
+
+# Explícito por la misma razón. Verificar contra la documentación oficial
+# vigente en el momento de instalar (RKE2 ha cambiado el default de Nginx a
+# Traefik en versiones recientes — ver ADR-008).
+ingress-controller: traefik
+
+# ──────────────────────────────────────────────────────────────────────
+# Opciones deliberadamente OMITIDAS en este ejemplo (quedan en su valor
+# por defecto de RKE2, sin necesidad concreta identificada hoy):
+#
+# node-name / node-ip / advertise-address:
+#   en un nodo único con una sola interfaz de red, RKE2 los detecta bien
+#   solo. Forzarlos sin una razón real solo agrega superficie a mantener.
+#
+# token / agent-token:
+#   secretos para que OTROS nodos se unan al clúster. No aplican a un nodo
+#   único — nadie se va a unir todavía. NUNCA se versionan si en el futuro
+#   se generan.
+#
+# cluster-cidr / service-cidr / cluster-dns / cluster-domain:
+#   valores por defecto de RKE2 (10.42.0.0/16, 10.43.0.0/16, etc.) — NO
+#   deben cambiarse después de crear el clúster sin básicamente
+#   reconstruirlo. Se dejan por defecto salvo conflicto real detectado con
+#   la red NAT de VirtualBox.
+#
+# profile:
+#   perfiles de hardening (ej. CIS Benchmark) — relevante si este
+#   laboratorio evolucionara hacia algo más cercano a producción real.
+#
+# data-dir:
+#   dónde vive /var/lib/rancher/rke2 — se deja por defecto salvo que el
+#   disco de la VM necesite reorganizarse.
+#
+# disable / kubelet-arg / kube-apiserver-arg:
+#   banderas avanzadas — sin necesidad concreta identificada en esta fase.
+# ──────────────────────────────────────────────────────────────────────
+
+# Este archivo es un EJEMPLO, no configuración activa. La configuración real
+# se creará (vía Ansible, no a mano) en la fase de instalación de RKE2 —
+# todavía no aprobada ni ejecutada.
