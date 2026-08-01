@@ -37,3 +37,6 @@ secrets.yml
 
 # Ansible
 *.retry
+infra/ansible/inventories/**/hosts.local.yml
+*.vault_pass
+.ansible/
