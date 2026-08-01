@@ -590,3 +590,33 @@
   color: var(--text-muted);
   box-shadow: none;
 }
+
+.create-room-modal__private-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.join-request-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.join-request-panel__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.join-request-panel__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}

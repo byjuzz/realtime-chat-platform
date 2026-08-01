@@ -13,6 +13,8 @@ function toPublicRoom(room: RoomRecord, presence: RoomPresenceState): PublicRoom
     name: room.name,
     slug: room.slug,
     createdAt: room.createdAt.getTime(),
+    isPrivate: room.isPrivate,
+    creatorId: room.creatorId,
     connectedUsers: presence.countConnectedGuests(room.id),
   };
 }
@@ -47,7 +49,20 @@ export function createRoomRoutes(chatService: ChatService, presence: RoomPresenc
       return;
     }
 
-    const result = await chatService.createRoom(nameResult.value, slug);
+    const isPrivate = req.body?.isPrivate === true;
+    const guestUserId: unknown = req.body?.guestUserId;
+    if (isPrivate && typeof guestUserId !== "string") {
+      res.status(400).json({
+        error: "GUEST_IDENTITY_REQUIRED",
+        message: "Debes ingresar a una sala antes de crear una sala privada.",
+      });
+      return;
+    }
+
+    const result = await chatService.createRoom(nameResult.value, slug, {
+      isPrivate,
+      creatorId: isPrivate ? (guestUserId as string) : null,
+    });
     if (!result.ok) {
       if (result.reason === "SLUG_CONFLICT") {
         res.status(409).json({ error: "ROOM_SLUG_CONFLICT", message: "Ya existe una sala con ese nombre." });

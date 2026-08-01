@@ -56,7 +56,7 @@ describe("useRooms", () => {
     const { result } = renderHook(() => useRooms());
     let created;
     await act(async () => {
-      created = await result.current.createRoom("Tecnología");
+      created = await result.current.createRoom("Tecnología", false);
     });
 
     expect(created).toMatchObject({ slug: "tecnologia" });
@@ -77,7 +77,7 @@ describe("useRooms", () => {
 
     const { result } = renderHook(() => useRooms());
     await act(async () => {
-      await result.current.createRoom("General");
+      await result.current.createRoom("General", false);
     });
 
     await waitFor(() => expect(result.current.createRoomError).toBe("Ya existe una sala con ese nombre."));

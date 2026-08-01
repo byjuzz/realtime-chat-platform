@@ -33,7 +33,9 @@ export class FakeRoomRepository implements IRoomRepository {
   private readonly rooms: RoomRecord[];
 
   constructor(
-    seed: RoomRecord[] = [{ id: "room-general", slug: "general", name: "General", createdAt: new Date(0) }]
+    seed: RoomRecord[] = [
+      { id: "room-general", slug: "general", name: "General", isPrivate: false, creatorId: null, createdAt: new Date(0) },
+    ]
   ) {
     this.rooms = seed;
   }
@@ -46,11 +48,18 @@ export class FakeRoomRepository implements IRoomRepository {
     return [...this.rooms].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 
-  async create(params: { name: string; slug: string }): Promise<RoomRecord> {
+  async create(params: { name: string; slug: string; isPrivate: boolean; creatorId: string | null }): Promise<RoomRecord> {
     if (this.rooms.some((room) => room.slug === params.slug)) {
       throw Object.assign(new Error("slug already exists"), { code: ROOM_SLUG_UNIQUE_VIOLATION });
     }
-    const room: RoomRecord = { id: randomUUID(), name: params.name, slug: params.slug, createdAt: new Date() };
+    const room: RoomRecord = {
+      id: randomUUID(),
+      name: params.name,
+      slug: params.slug,
+      isPrivate: params.isPrivate,
+      creatorId: params.creatorId,
+      createdAt: new Date(),
+    };
     this.rooms.push(room);
     return room;
   }

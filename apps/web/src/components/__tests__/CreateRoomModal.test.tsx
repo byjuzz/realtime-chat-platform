@@ -19,7 +19,7 @@ describe("CreateRoomModal", () => {
     await userEvent.type(input, "  Tecnología  ");
     await userEvent.click(screen.getByRole("button", { name: "Crear sala" }));
 
-    expect(onCreate).toHaveBeenCalledWith("Tecnología");
+    expect(onCreate).toHaveBeenCalledWith("Tecnología", false);
   });
 
   it("cierra con Escape y devuelve el foco al disparador", async () => {

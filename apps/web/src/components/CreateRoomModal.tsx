@@ -5,12 +5,13 @@ export interface CreateRoomModalProps {
   open: boolean;
   submitting?: boolean;
   error?: string | null;
-  onCreate: (name: string) => void;
+  onCreate: (name: string, isPrivate: boolean) => void;
   onClose: () => void;
 }
 
 export function CreateRoomModal({ open, submitting, error, onCreate, onClose }: CreateRoomModalProps) {
   const [name, setName] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
@@ -38,7 +39,7 @@ export function CreateRoomModal({ open, submitting, error, onCreate, onClose }: 
     event.preventDefault();
     const trimmed = name.trim();
     if (trimmed.length < VALIDATION.ROOM_NAME_MIN_LENGTH || submitting) return;
-    onCreate(trimmed);
+    onCreate(trimmed, isPrivate);
   }
 
   return (
@@ -65,6 +66,15 @@ export function CreateRoomModal({ open, submitting, error, onCreate, onClose }: 
             autoComplete="off"
             placeholder="Ej. Tecnología"
           />
+          <label className="create-room-modal__private-toggle">
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={(event) => setIsPrivate(event.target.checked)}
+              disabled={submitting}
+            />
+            Sala privada (solo tú apruebas quién entra)
+          </label>
           {error ? (
             <p className="form-error" role="alert">
               {error}

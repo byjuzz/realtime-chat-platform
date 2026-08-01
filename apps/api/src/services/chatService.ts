@@ -71,9 +71,13 @@ export class ChatService {
    * reintentar con sufijos (decisión de la Fase 4: no hay sufijo
    * automático, se responde 409 al cliente).
    */
-  async createRoom(name: string, slug: string): Promise<CreateRoomResult> {
+  async createRoom(
+    name: string,
+    slug: string,
+    options: { isPrivate: boolean; creatorId: string | null }
+  ): Promise<CreateRoomResult> {
     try {
-      const room = await this.rooms.create({ name, slug });
+      const room = await this.rooms.create({ name, slug, isPrivate: options.isPrivate, creatorId: options.creatorId });
       return { ok: true, room };
     } catch (error) {
       if (

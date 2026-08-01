@@ -9,7 +9,14 @@ export interface UseRoomsResult {
   creatingRoom: boolean;
   createRoomError: string | null;
   refreshRooms: () => Promise<void>;
-  createRoom: (name: string) => Promise<PublicRoom | null>;
+  /**
+   * `guestUserId` debe ser el de ESTA sesión de socket activa (p. ej.
+   * `currentUser?.guestUserId` de useChatSocket), nunca leído de
+   * localStorage aquí: localStorage es compartido entre pestañas del mismo
+   * origen, y otra pestaña pudo haber escrito ahí un guestUserId distinto
+   * mientras tanto (igual que ya se documenta en useChatSocket).
+   */
+  createRoom: (name: string, isPrivate: boolean, guestUserId?: string) => Promise<PublicRoom | null>;
 }
 
 /**
@@ -42,11 +49,11 @@ export function useRooms(): UseRoomsResult {
     }
   }, []);
 
-  const createRoom = useCallback(async (name: string): Promise<PublicRoom | null> => {
+  const createRoom = useCallback(async (name: string, isPrivate: boolean, guestUserId?: string): Promise<PublicRoom | null> => {
     setCreatingRoom(true);
     setCreateRoomError(null);
     try {
-      const room = await createRoomRequest(name);
+      const room = await createRoomRequest(name, isPrivate, guestUserId);
       setRooms((prev) => [...prev, room]);
       return room;
     } catch (error) {

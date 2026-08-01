@@ -4,7 +4,7 @@ import type { PublicRoom } from "@realtime-chat/shared";
 import type { UseChatSocketResult } from "../hooks/useChatSocket";
 import type { UseRoomsResult } from "../hooks/useRooms";
 
-const generalRoom: PublicRoom = { id: "room-1", name: "General", slug: "general", createdAt: 0 };
+const generalRoom: PublicRoom = { id: "room-1", name: "General", slug: "general", createdAt: 0, isPrivate: false, creatorId: null };
 
 const chatSocketState: { value: UseChatSocketResult } = {
   value: {
@@ -19,10 +19,14 @@ const chatSocketState: { value: UseChatSocketResult } = {
     historyError: null,
     hasMoreHistory: false,
     roomTransitioning: false,
+    pendingApproval: false,
+    joinRequests: [],
     join: vi.fn(),
     switchRoom: vi.fn(),
     sendMessage: vi.fn(),
     loadMoreHistory: vi.fn(),
+    approveJoinRequest: vi.fn(),
+    rejectJoinRequest: vi.fn(),
   },
 };
 

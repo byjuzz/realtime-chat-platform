@@ -5,8 +5,8 @@ import type { PublicRoom } from "@realtime-chat/shared";
 import { RoomList } from "../RoomList";
 
 const rooms: PublicRoom[] = [
-  { id: "1", name: "General", slug: "general", createdAt: 0, connectedUsers: 2 },
-  { id: "2", name: "Tecnología", slug: "tecnologia", createdAt: 1 },
+  { id: "1", name: "General", slug: "general", createdAt: 0, isPrivate: false, creatorId: null, connectedUsers: 2 },
+  { id: "2", name: "Tecnología", slug: "tecnologia", createdAt: 1, isPrivate: false, creatorId: null },
 ];
 
 describe("RoomList", () => {

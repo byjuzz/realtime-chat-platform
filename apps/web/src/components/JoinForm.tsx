@@ -5,9 +5,10 @@ export interface JoinFormProps {
   onJoin: (name: string) => void;
   error?: string | null;
   submitting?: boolean;
+  pendingApproval?: boolean;
 }
 
-export function JoinForm({ onJoin, error, submitting }: JoinFormProps) {
+export function JoinForm({ onJoin, error, submitting, pendingApproval }: JoinFormProps) {
   const [name, setName] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -15,6 +16,17 @@ export function JoinForm({ onJoin, error, submitting }: JoinFormProps) {
     const trimmed = name.trim();
     if (trimmed.length < VALIDATION.NAME_MIN_LENGTH) return;
     onJoin(trimmed);
+  }
+
+  if (pendingApproval) {
+    return (
+      <div className="join-screen">
+        <div>
+          <p className="join-screen__title">Sala privada</p>
+          <p className="join-screen__subtitle">Esperando a que el creador de la sala apruebe tu ingreso...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
