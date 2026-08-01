@@ -1,0 +1,55 @@
+---
+# Playbook exclusivamente NO destructivo. No instala, no copia, no crea, no
+# elimina, no reinicia, no cambia servicios ni firewall, no ejecuta shell
+# arbitrario. Solo recopila facts y los valida contra expectativas conocidas.
+- name: Validar conectividad y prerrequisitos básicos del nodo
+  hosts: rke2_servers
+  gather_facts: true
+  become: false
+  tasks:
+    - name: Confirmar familia de sistema operativo Debian
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "Se esperaba una distribución de la familia Debian."
+        success_msg: "Familia de SO confirmada: Debian."
+
+    - name: Confirmar distribución Ubuntu
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == "Ubuntu"
+        fail_msg: "Se esperaba Ubuntu."
+        success_msg: "Distribución confirmada: Ubuntu."
+
+    - name: Confirmar arquitectura x86_64
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['architecture'] == "x86_64"
+        fail_msg: "Arquitectura inesperada."
+        success_msg: "Arquitectura confirmada: x86_64."
+
+    - name: Confirmar CPUs mínimas (RKE2 documenta 2 como mínimo)
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['processor_vcpus'] | default(ansible_facts['processor_count']) >= 2
+        fail_msg: "Menos de 2 CPUs disponibles."
+        success_msg: "CPU suficiente."
+
+    - name: Confirmar RAM mínima (RKE2 documenta 4 GB como mínimo)
+      ansible.builtin.assert:
+        that:
+          - (ansible_facts['memtotal_mb'] | int) >= 3800
+        fail_msg: "RAM por debajo del mínimo documentado de RKE2."
+        success_msg: "RAM suficiente para el mínimo documentado de RKE2."
+
+    - name: Confirmar hostname no vacío
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['hostname'] | length > 0
+        success_msg: "Hostname: {{ ansible_facts['hostname'] }}"
+
+    - name: Confirmar intérprete Python remoto (Python 3)
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['python']['version']['major'] == 3
+        success_msg: "Python remoto: {{ ansible_facts['python']['version']['major'] }}.{{ ansible_facts['python']['version']['minor'] }}"
