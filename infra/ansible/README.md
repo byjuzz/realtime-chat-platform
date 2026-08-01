@@ -1,78 +1,102 @@
 # infra/ansible
 
-Infraestructura como código para preparar la VM `devops-lab` (y futuras VMs de ambiente) e
-instalar RKE2.
+Infraestructura como código para preparar la VM `devops-lab` e instalar RKE2.
 
-## Estado actual (Fase 7.0)
+## Estado actual (Fase 7.1)
 
-**Diseño únicamente. No existen playbooks funcionales todavía.** Ansible no está instalado
-ni en el controlador ni en la VM de destino. Nada de la estructura descrita abajo se ha creado
-salvo este archivo. Ver:
+**El controlador Ansible ya está instalado y validado.** Corre **dentro de `devops-lab`**
+(no en WSL, no en Windows — ver ADR-008 para el porqué de esta decisión definitiva). RKE2 y
+Kubernetes **no** están instalados todavía; solo existe un playbook de validación no
+destructivo.
 
-- [ADR-008](../../docs/adr/ADR-008-infrastructure-as-code-with-ansible.md) — decisión y
-  versiones propuestas.
+Ver:
+
+- [ADR-008](../../docs/adr/ADR-008-infrastructure-as-code-with-ansible.md) — decisión,
+  controlador, versiones.
 - [Plan de arquitectura](../../docs/architecture/ansible-rke2-infrastructure-plan.md) —
   separación de responsabilidades y topología.
-- [Runbook de auditoría](../../docs/runbooks/ubuntu-rke2-readiness-audit.md) — estado real
-  de `devops-lab`.
+- [`docs/learning/rke2-from-zero.md`](../../docs/learning/rke2-from-zero.md) — guía completa
+  de RKE2/Kubernetes.
+- [Runbook del controlador](../../docs/runbooks/ansible-controller-devops-lab-setup.md) —
+  cómo se preparó, cómo validarlo, cómo revertirlo.
+- [Runbook de auditoría](../../docs/runbooks/ubuntu-rke2-readiness-audit.md) — estado de
+  `devops-lab` (Fase 7.0).
 
 ## Propósito
 
-Automatizar, de forma reproducible e idempotente, sobre la VM Ubuntu 24.04 (`devops-lab`) y
-futuras VMs de ambiente:
+Automatizar, de forma reproducible e idempotente, sobre `devops-lab`:
 
 - Configuración base del sistema operativo (prerrequisitos de kernel, paquetes base).
 - Firewall y hardening mínimo necesario.
-- Instalación y configuración de RKE2 (rol `server`, y `agent` si en el futuro se agregan
+- Instalación y configuración de RKE2 (rol `server`; `agent` solo si en el futuro se agregan
   nodos worker).
 - Validaciones post-instalación.
 
 **Ansible no administra pods ni workloads de Kubernetes** — eso queda a cargo de los
 manifiestos de `infra/kubernetes` una vez que el clúster exista.
 
-## Estructura futura (propuesta, ninguno de estos archivos existe todavía)
+## Estructura actual (lo que ya existe)
 
 ```
 infra/ansible/
 ├── README.md                       Este archivo
-├── ansible.cfg                     Configuración del proyecto (no funcional todavía)
-├── requirements.yml                Colecciones de Ansible necesarias (no funcional todavía)
+├── ansible.cfg                     Configuración real, en uso
+├── requirements-controller.txt     ansible-core/ansible-lint fijados, en uso
 ├── inventories/
 │   └── lab/
-│       ├── hosts.yml                Inventario del laboratorio (sin datos reales todavía)
-│       ├── group_vars/
-│       │   ├── all.yml              Variables comunes a todo el inventario
-│       │   └── rke2_servers.yml     Variables específicas del grupo rke2_servers
-│       └── host_vars/               Variables específicas por host, si hicieran falta
+│       ├── hosts.yml.example        Plantilla versionada, con ansible_connection: local
+│       ├── hosts.local.yml          Real, ignorado por git (sin secretos: conexión local)
+│       └── README.md                Explica el inventario del laboratorio
 ├── playbooks/
-│   ├── audit.yml                    Auditoría de solo lectura (equivalente automatizado del runbook)
-│   ├── prepare.yml                  Prerrequisitos de sistema (kernel, paquetes, firewall)
-│   ├── install-rke2.yml             Instalación de RKE2
-│   ├── validate.yml                 Validación post-instalación
-│   └── site.yml                     Orquesta los playbooks anteriores en orden
-└── roles/
-    ├── common/                      Paquetes base, configuración común
-    ├── system_prerequisites/        ip_forward, br_netfilter, swap, límites de inotify
-    ├── firewall/                    Reglas de firewall específicas de RKE2
-    ├── rke2_server/                 Instalación y configuración del rol server
-    └── validation/                  Checks post-instalación
+│   └── validate-connectivity.yml    No destructivo — validado: ok=8 changed=0
+└── examples/
+    └── rke2-config.single-node.yaml.example   Ejemplo comentado, no consumido por nada
 ```
 
-## Convenciones previstas
+## Estructura futura (roadmap, nada de esto existe todavía)
 
-- **Inventarios por ambiente**: un directorio por ambiente dentro de `inventories/` (empieza
-  con `lab/` para el laboratorio actual de un solo nodo; `dev`/`uat`/`prod` se agregarán si
-  algún día dejan de ser namespaces del mismo clúster y pasan a ser VMs separadas).
-- **Variables**: `group_vars`/`host_vars` para configuración específica de ambiente; nada de
-  valores reales (IPs, tokens, contraseñas) comiteado en texto plano.
-- **Roles separados por responsabilidad única** — cada rol hace una cosa (preparar el
-  sistema, instalar RKE2, validar), no un rol monolítico que hace todo.
-- **`site.yml`** como punto de entrada que orquesta los playbooks individuales en el orden
-  correcto (auditoría → preparación → instalación → validación).
-- **Tags** en tasks para poder correr subconjuntos (`--tags prepare`, `--tags validate`) sin
-  ejecutar el playbook completo.
-- **Modo `--check`** (dry-run) para verificar idempotencia antes de aplicar cambios reales —
-  correr dos veces sin cambios no debe reportar ningún cambio en la segunda corrida.
+```
+infra/bootstrap/
+└── bootstrap-controller.sh          Reconstruir el controlador desde una VM Ubuntu limpia
+
+infra/ansible/playbooks/
+├── prepare-server.yml               Prerrequisitos de sistema (kernel, paquetes, firewall)
+├── install-rke2.yml                 Instalación de RKE2
+├── validate-rke2.yml                Validación post-instalación de RKE2
+└── site.yml                         Orquesta todo en orden
+
+infra/ansible/roles/
+├── common/                          Paquetes base, configuración común
+├── system_prerequisites/            ip_forward, br_netfilter, swap, límites de inotify
+├── firewall/                        Reglas de firewall específicas de RKE2
+├── rke2_server/                     Instalación y configuración del rol server
+└── validation/                      Checks post-instalación
+```
+
+**Objetivo final de esta estructura**: que, tras crear una VM Ubuntu base nueva, sea
+suficiente ejecutar el bootstrap y después:
+
+```bash
+ansible-playbook \
+  -i infra/ansible/inventories/lab/hosts.local.yml \
+  infra/ansible/playbooks/site.yml
+```
+
+para dejar `devops-lab` completamente preparada y con RKE2 instalado. Ninguno de estos
+archivos existe todavía — son el objetivo de las fases 7.2 en adelante.
+
+## Convenciones
+
+- **Conexión local, no SSH**: el controlador vive dentro de `devops-lab`
+  (`ansible_connection: local`) — decisión definitiva, ver ADR-008.
+- **Roles separados por responsabilidad única** — cada rol hace una cosa, no un rol
+  monolítico que hace todo.
+- **`site.yml`** (futuro) orquesta los playbooks individuales en orden: preparación →
+  instalación → validación.
+- **Tags** en tasks para poder correr subconjuntos sin ejecutar el playbook completo.
+- **Modo `--check`** para verificar idempotencia antes de aplicar cambios reales — correr dos
+  veces sin cambios no debe reportar ningún cambio en la segunda corrida (ya demostrado con
+  `validate-connectivity.yml`: `changed=0`).
 
 ## Política de secretos
 
@@ -80,16 +104,16 @@ infra/ansible/
 `kubeconfig` real, contraseñas, credenciales de PostgreSQL, secretos de Kubernetes, archivos
 `.env` reales.
 
-La clave SSH usada para administrar `devops-lab` vive fuera del repositorio (en el `~/.ssh/`
-de cada desarrollador), nunca dentro de `infra/ansible/`. Para variables sensibles que un
+La clave SSH usada por el desarrollador para entrar a `devops-lab` vive fuera del
+repositorio, en Windows, nunca dentro de `infra/ansible/`. Para variables sensibles que un
 playbook necesite en el futuro, se usará **Ansible Vault**. Ver ADR-008 para la estrategia
 completa, incluyendo opciones futuras para UAT/producción.
 
 ## Fases futuras
 
-- **7.1**: preparar el controlador Ansible (WSL con distro de propósito general, Python,
-  `ansible-core`, `ansible-lint`) — todavía no ejecutado.
-- **7.2+**: crear los playbooks y roles funcionales listados arriba, e instalar RKE2.
+- **7.2+**: `infra/bootstrap/bootstrap-controller.sh` (reconstrucción reproducible del
+  controlador desde una VM limpia), los playbooks y roles funcionales listados arriba, e
+  instalación real de RKE2.
 
-Hasta que esas fases se aprueben y ejecuten explícitamente, este directorio permanece como
-documentación de diseño, sin automatización real.
+Hasta que esas fases se aprueben y ejecuten explícitamente, RKE2 y Kubernetes permanecen sin
+instalar.

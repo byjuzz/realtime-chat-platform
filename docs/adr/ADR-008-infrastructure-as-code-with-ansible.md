@@ -2,8 +2,8 @@
 
 ## Estado
 
-Propuesto (Fase 7.0) — decisión de diseño y auditoría; nada de lo descrito aquí está
-instalado todavía.
+Aceptado, actualizado en la Fase 7.1. El controlador Ansible ya está instalado y validado
+(ver sección "Controlador Ansible" abajo); RKE2 y Kubernetes siguen sin instalarse.
 
 ## Contexto
 
@@ -30,26 +30,52 @@ Auditoría real del entorno Windows (Fase 7.0): existe WSL instalado, pero la ú
 distribución presente es `docker-desktop` — una distro interna que usa Docker Desktop para sí
 mismo, no un entorno Linux de propósito general utilizable como controlador.
 
-**Decisión**: instalar una distribución WSL de propósito general (a definir en la Fase 7.1,
-no en esta) para uso como controlador de laboratorio. Para automatización futura no
-interactiva (por ejemplo, si se quisiera correr Ansible desde CI), se evaluará un runner Linux
-controlado — explícitamente **no** en esta fase, y explícitamente **GitHub Actions no tendrá
-acceso a `devops-lab` todavía**.
+**Alternativa considerada y descartada explícitamente: WSL con una distro de propósito
+general.** Era la propuesta original de la Fase 7.0. Se descartó en la Fase 7.1 por decisión
+explícita del propietario del proyecto: el host de desarrollo (Windows) tiene recursos
+limitados, y agregar un controlador WSL separado significaba una capa más de infraestructura
+que mantener sin un beneficio claro para este laboratorio en particular.
 
-### Versiones propuestas (verificadas contra fuentes oficiales, no instaladas)
+**Decisión definitiva**: `devops-lab` cumple **simultáneamente** el rol de controlador
+Ansible (vía `ansible_connection: local`) y de nodo administrado. Windows queda
+exclusivamente como anfitrión de VirtualBox, entorno de edición, cliente Git y cliente SSH —
+nunca ejecuta Ansible ni tiene Python instalado con ese propósito. No se instala Ansible en
+Windows, no se instala WSL de propósito general, no existe un runner separado.
 
-| Componente | Versión propuesta | Fuente | Fecha de consulta |
-|---|---|---|---|
-| Python (controlador) | 3.12–3.14 (rango soportado) | docs.ansible.com — release_and_maintenance | 2026-07-25 |
-| `ansible-core` | 2.20 (estable actual) | docs.ansible.com — release_and_maintenance | 2026-07-25 |
-| Python (nodo administrado) | 3.9–3.14 (rango soportado); `devops-lab` ya tiene 3.12.3 | docs.ansible.com — release_and_maintenance | 2026-07-25 |
-| RKE2 | `v1.36.2+rke2r1` (última estable) | github.com/rancher/rke2/releases | 2026-07-25 |
-| Kubernetes (incluido en RKE2) | v1.36.2 | github.com/rancher/rke2/releases | 2026-07-25 |
+**Tradeoff aceptado explícitamente**: con un controlador externo (WSL o similar), si
+`devops-lab` se rompe durante una instalación, sigue existiendo una herramienta externa
+funcional para diagnosticar/reparar. Con el controlador dentro de la propia VM, si se rompe,
+se pierde también la herramienta de reparación. La estrategia de recuperación aceptada para
+compensar esto **no** es resiliencia del controlador, sino reconstrucción completa desde cero:
+clonar una VM Ubuntu limpia → acceso inicial → clonar el repositorio → bootstrap mínimo →
+entorno virtual → Ansible fijado → modo local → preparar el sistema → instalar RKE2 vía
+playbooks → aplicar Kubernetes → restaurar backups de `etcd` y PostgreSQL cuando corresponda.
+La VM (o una futura OVA/plantilla) puede usarse como acelerador de ese proceso, pero **nunca**
+como única fuente de recuperación — **Git y los playbooks son la fuente de verdad**; los
+datos requieren backups independientes de la infraestructura (ver la sección de `etcd`/
+PostgreSQL en `docs/learning/rke2-from-zero.md`).
 
-Estas versiones son **propuestas para aprobación**, no instaladas. No se usa `latest`, `main`
-ni un canal flotante sin documentar qué versión resolvió — cada versión queda fijada
-explícitamente, con su fuente y fecha de verificación, siguiendo el mismo principio que ya se
-usó para fijar las GitHub Actions por SHA en la Fase 6.1.
+Para automatización futura no interactiva (por ejemplo, si se quisiera correr Ansible desde
+CI), se evaluará por separado — explícitamente **no** en esta fase, y explícitamente
+**GitHub Actions no tiene acceso a `devops-lab`**.
+
+### Versiones — controlador instalado (Fase 7.1) y RKE2 propuesto (no instalado)
+
+| Componente | Versión | Estado | Fuente | Fecha de consulta |
+|---|---|---|---|---|
+| Python (controlador = `devops-lab`) | 3.12.3 | **Instalado** (ya venía con Ubuntu 24.04) | — | Fase 7.0 |
+| `ansible-core` | **2.20.7** | **Instalado**, en `~/.venvs/realtime-chat-ansible` | pypi.org, `pip index versions` | 2026-07-31 |
+| `ansible-lint` | **26.6.0** | **Instalado**, compatible sin conflictos con `ansible-core==2.20.7` | pypi.org, `pip index versions` | 2026-07-31 |
+| RKE2 | `v1.36.2+rke2r1` (última estable) | Propuesto, **no instalado** | github.com/rancher/rke2/releases | 2026-07-25 |
+| Kubernetes (incluido en RKE2) | v1.36.2 | Propuesto, **no instalado** | github.com/rancher/rke2/releases | 2026-07-25 |
+
+Nota sobre `ansible-core`: al momento de instalar (2026-07-31) ya existía una serie mayor más
+reciente (`2.21.x`). Se mantuvo deliberadamente la serie `2.20` ya propuesta y aprobada en la
+Fase 7.0, fijando su **último parche** (`2.20.7`) en vez de saltar silenciosamente a una serie
+mayor nunca discutida — actualizar de serie mayor es una decisión aparte, futura.
+
+Ninguna versión usa `latest`, `main` ni un canal flotante sin documentar qué versión resolvió
+— mismo principio que el fijado por SHA de las GitHub Actions en la Fase 6.1.
 
 Mecanismo de verificación/checksum de la instalación de RKE2: pendiente de definir en detalle
 en la fase de instalación (RKE2 publica checksums junto a cada release; se usarán en el
@@ -140,8 +166,8 @@ mecanismos independientes entre sí.
 - Las versiones fijadas explícitamente evitan el problema de "funcionaba ayer, hoy no" por un
   canal `latest` que cambió silenciosamente — mismo principio que el fijado por SHA de las
   GitHub Actions.
-- La ausencia de un controlador Ansible listo bloquea la Fase 7.1 hasta que se instale una
-  distro WSL de propósito general — decisión pendiente de aprobación, no ejecutada aquí.
+- El controlador Ansible ya no es un bloqueante — quedó instalado y validado dentro de
+  `devops-lab` en la Fase 7.1 (`ping` → `pong`, `changed=0` en el primer playbook real).
 
 ## Limitaciones
 

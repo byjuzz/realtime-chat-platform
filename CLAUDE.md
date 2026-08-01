@@ -67,21 +67,33 @@ se aprueba antes de tocar archivos.
 
 ## Infraestructura como código (Ansible / RKE2)
 
-- Estado: **diseño únicamente (Fase 7.0)**. Ansible no está instalado (ni en un controlador
-  ni en `devops-lab`), RKE2 no está instalado, Kubernetes no existe todavía, y GitHub Actions
-  no tiene acceso a `devops-lab`.
-- `devops-lab` fue auditada de forma no destructiva (solo comandos de lectura por SSH) —
-  resultado: LISTO CON RIESGOS. Ver
-  [runbook de auditoría](docs/runbooks/ubuntu-rke2-readiness-audit.md) para el detalle
-  completo y un checklist general reutilizable.
-- Decisión y versiones propuestas: [ADR-008](docs/adr/ADR-008-infrastructure-as-code-with-ansible.md).
-  Arquitectura y separación de responsabilidades:
-  [plan de infraestructura](docs/architecture/ansible-rke2-infrastructure-plan.md).
+- Estado (Fase 7.1): **controlador Ansible instalado y validado**. RKE2 y Kubernetes siguen
+  sin instalarse; GitHub Actions no tiene acceso a `devops-lab`.
+- **Decisión de arquitectura definitiva**: `devops-lab` es a la vez controlador Ansible
+  (`ansible_connection: local`) y nodo administrado — **no se usa WSL** (alternativa
+  considerada y descartada explícitamente, ver ADR-008). Windows es solo anfitrión de
+  VirtualBox, cliente Git/SSH y entorno de edición; nunca ejecuta Ansible.
+  **No volver a proponer WSL, controlador separado, ni instalar Ansible/Python en Windows.**
+- Estrategia de recuperación aceptada: si `devops-lab` se pierde, se reconstruye desde cero
+  (VM limpia → bootstrap → Ansible → RKE2 → restaurar backups de `etcd`/PostgreSQL) — **Git y
+  los playbooks son la fuente de verdad**, no la VM en sí. Backups de datos son independientes
+  de la infraestructura.
+- `devops-lab` fue auditada de forma no destructiva — resultado: LISTO CON RIESGOS. Ver
+  [runbook de auditoría](docs/runbooks/ubuntu-rke2-readiness-audit.md) (checklist reutilizable)
+  y el [runbook del controlador](docs/runbooks/ansible-controller-devops-lab-setup.md).
+- Decisión y versiones: [ADR-008](docs/adr/ADR-008-infrastructure-as-code-with-ansible.md)
+  (`ansible-core==2.20.7`, `ansible-lint==26.6.0`, instalados en
+  `~/.venvs/realtime-chat-ansible` dentro de `devops-lab`). Arquitectura completa:
+  [plan de infraestructura](docs/architecture/ansible-rke2-infrastructure-plan.md). Guía
+  extensa de RKE2/Kubernetes: [docs/learning/rke2-from-zero.md](docs/learning/rke2-from-zero.md).
 - Separación estricta: Ansible administra el sistema operativo y la instalación de RKE2;
   Kubernetes administra los workloads. Ninguna herramienta invade el territorio de la otra.
-- Próxima fase: 7.1, preparación del controlador Ansible (WSL con distro de propósito
-  general — hoy solo existe la distro interna `docker-desktop`, no utilizable como
-  controlador).
+- `sudo` sin contraseña en `devops-lab`: **acotado únicamente a `/usr/bin/apt-get`**
+  (`/etc/sudoers.d/juzz-apt-nopasswd`), no acceso root total.
+- Próxima fase: construir `infra/bootstrap/bootstrap-controller.sh` y los playbooks/roles
+  funcionales (`prepare-server.yml`, `install-rke2.yml`, `validate-rke2.yml`, `site.yml`,
+  roles `common`/`system_prerequisites`/`firewall`/`rke2_server`/`validation`) — ninguno
+  existe todavía.
 
 ## Convenciones
 
