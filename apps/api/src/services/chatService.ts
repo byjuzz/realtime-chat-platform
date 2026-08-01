@@ -94,12 +94,14 @@ export class ChatService {
 
   async sendMessage(params: {
     text: string;
+    imageData?: string;
     guestUserId: string;
     roomId: string;
   }): Promise<SendMessageResult> {
     try {
       const record = await this.messages.create({
         text: params.text,
+        imageData: params.imageData,
         authorId: params.guestUserId,
         roomId: params.roomId,
       });
@@ -110,6 +112,7 @@ export class ChatService {
         authorId: record.authorId,
         authorName: record.authorName,
         text: record.text,
+        imageData: record.imageData,
         ts: record.createdAt.getTime(),
       };
 
@@ -143,6 +146,7 @@ export class ChatService {
         authorId: record.authorId,
         authorName: record.authorName,
         text: record.text,
+        imageData: record.imageData,
         ts: record.createdAt.getTime(),
       }))
       .reverse(); // de DESC (más reciente primero) a ASC (orden cronológico)

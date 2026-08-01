@@ -35,6 +35,8 @@ model Room {
 model Message {
   id        String    @id @default(uuid())
   text      String    @db.VarChar(500)
+  /** Prototipo: imagen como data URL base64, guardada directo en la fila. No apto para producción (ver docs/adr si se formaliza). */
+  imageData String?   @db.Text
   authorId  String
   author    GuestUser @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   roomId    String

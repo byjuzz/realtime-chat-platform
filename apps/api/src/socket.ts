@@ -7,8 +7,8 @@ import {
   type PublicUser,
   type RoomJoinAck,
   type ServerToClientEvents,
-  validateMessageText,
   validateName,
+  validateOutgoingMessage,
 } from "@realtime-chat/shared";
 import { RoomPresenceState } from "./presence/roomPresenceState.js";
 import { SocketRateLimiter } from "./presence/rateLimiter.js";
@@ -246,7 +246,7 @@ export function createSocketServer(
         return;
       }
 
-      const result = validateMessageText(payload?.text);
+      const result = validateOutgoingMessage(payload?.text, payload?.imageData);
       if (!result.valid) {
         ack(result.error);
         return;
@@ -273,7 +273,8 @@ export function createSocketServer(
         }
 
         const sendResult = await chatService.sendMessage({
-          text: result.value,
+          text: result.value.text,
+          imageData: result.value.imageData,
           guestUserId: author.guestUserId,
           roomId,
         });

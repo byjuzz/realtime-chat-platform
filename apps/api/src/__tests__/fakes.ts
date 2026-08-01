@@ -71,7 +71,7 @@ export class FakeMessageRepository implements IMessageRepository {
 
   constructor(private readonly guestUsers: FakeGuestUserRepository) {}
 
-  async create(params: { text: string; authorId: string; roomId: string }): Promise<MessageRecord> {
+  async create(params: { text: string; imageData?: string; authorId: string; roomId: string }): Promise<MessageRecord> {
     if (this.failNextCreate) {
       this.failNextCreate = false;
       throw new Error("simulated persistence failure");
@@ -80,6 +80,7 @@ export class FakeMessageRepository implements IMessageRepository {
     const record: MessageRecord = {
       id: randomUUID(),
       text: params.text,
+      imageData: params.imageData ?? null,
       authorId: params.authorId,
       authorName: author?.displayName ?? "unknown",
       roomId: params.roomId,

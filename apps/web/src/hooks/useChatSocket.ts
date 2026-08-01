@@ -37,7 +37,7 @@ export interface UseChatSocketResult {
   joinRequests: RoomJoinRequestPayload[];
   join: (name: string) => Promise<void>;
   switchRoom: (roomSlug: string) => Promise<void>;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, imageData?: string) => Promise<void>;
   loadMoreHistory: () => Promise<void>;
   approveJoinRequest: (requestId: string) => Promise<void>;
   rejectJoinRequest: (requestId: string) => Promise<void>;
@@ -269,12 +269,12 @@ export function useChatSocket(): UseChatSocketResult {
   );
 
   const sendMessage = useCallback(
-    (text: string) => {
+    (text: string, imageData?: string) => {
       return new Promise<void>((resolve) => {
         const socket = socketRef.current;
         if (!socket || roomTransitioning) return resolve();
         setSendError(null);
-        socket.emit("message:send", { text }, (ack) => {
+        socket.emit("message:send", { text, imageData }, (ack) => {
           if (!ack.ok) {
             setSendError(ack.message);
           }

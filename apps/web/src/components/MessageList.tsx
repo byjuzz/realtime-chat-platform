@@ -51,6 +51,7 @@ export function MessageList({
           <li key={message.id} className="message-row" data-own={isOwn}>
             <div className="message-bubble">
               {!isOwn && <span className="message-bubble__author">{message.authorName}</span>}
+              {message.imageData ? <img className="message-bubble__image" src={message.imageData} alt="Imagen enviada en el chat" /> : null}
               {message.text}
             </div>
           </li>

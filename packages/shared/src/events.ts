@@ -24,6 +24,12 @@ export const VALIDATION = {
   ROOM_SLUG_MAX_LENGTH: 60,
   /** Tiempo máximo que una solicitud de ingreso a una sala privada espera aprobación del creador antes de expirar. */
   JOIN_REQUEST_TTL_MS: 60_000,
+  /**
+   * Prototipo de imágenes: tamaño máximo del data URL base64 (~1.5MB de
+   * imagen real, la codificación base64 agrega ~33% de overhead). Guardado
+   * directo en la fila del mensaje — no apto para producción.
+   */
+  IMAGE_DATA_URL_MAX_LENGTH: 2_000_000,
 } as const;
 
 /** Slugs que ninguna sala creada por usuarios puede usar. */
@@ -48,6 +54,8 @@ export interface ChatMessage {
   authorId: string;
   authorName: string;
   text: string;
+  /** Prototipo: data URL base64 (p. ej. "data:image/png;base64,..."), opcional. */
+  imageData?: string | null;
   ts: number;
 }
 
@@ -80,7 +88,9 @@ export type ErrorCode =
   | "JOIN_REJECTED"
   | "JOIN_EXPIRED"
   | "JOIN_REQUEST_NOT_FOUND"
-  | "NOT_ROOM_CREATOR";
+  | "NOT_ROOM_CREATOR"
+  | "INVALID_IMAGE"
+  | "IMAGE_TOO_LARGE";
 
 export interface ErrorResponse {
   ok: false;
@@ -145,6 +155,8 @@ export type RoomLeaveAck = AckResponse<Record<string, never>>;
 
 export interface MessageSendPayload {
   text: string; // sin roomId: el servidor determina la sala activa del socket, nunca confía en el cliente
+  /** Prototipo: data URL base64 opcional. Si se envía, `text` puede ir vacío (funciona como pie de foto opcional). */
+  imageData?: string;
 }
 
 // --- Payloads Socket.IO (servidor -> cliente) ---

@@ -349,6 +349,37 @@
   cursor: not-allowed;
 }
 
+.message-bubble__image {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  object-fit: cover;
+}
+
+.message-input-bar__preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.message-input-bar__preview img {
+  max-height: 64px;
+  max-width: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.message-input-bar__preview button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
 .inline-error {
   flex: none;
   margin: 0 16px 10px;
