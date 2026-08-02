@@ -1,0 +1,40 @@
+---
+# Rol "firewall" — Checkpoint 7.2A: SOLO AUDITORÍA.
+#
+# Sin `become: true` en este checkpoint (mismo criterio que
+# prepare-server.yml). El estado de reglas de ufw requiere privilegios de
+# root para leerse (`ufw status` falla sin sudo) — esto ya está documentado
+# como hallazgo conocido en el runbook de auditoría de la Fase 7.0. Este
+# rol reporta esa limitación honestamente en vez de escalar privilegios
+# para evitarla.
+
+- name: "firewall | comprobar si ufw está instalado"
+  ansible.builtin.command:
+    cmd: which ufw
+  register: firewall_ufw_present
+  changed_when: false
+  failed_when: false
+
+- name: "firewall | intentar leer el estado de ufw (puede fallar sin sudo)"
+  ansible.builtin.command:
+    cmd: ufw status
+  register: firewall_ufw_status
+  changed_when: false
+  failed_when: false
+  when: firewall_ufw_present.rc == 0
+
+- name: "firewall | reportar estado (auditoría, sin cambios)"
+  ansible.builtin.debug:
+    msg: >-
+      [firewall] ufw instalado={{ firewall_ufw_present.rc == 0 }}.
+      {% if firewall_ufw_present.rc == 0 %}
+      Estado: {{ 'no determinable sin escalamiento de privilegios (become: false en este checkpoint)'
+        if (firewall_ufw_status.rc | default(1)) != 0
+        else firewall_ufw_status.stdout }}.
+      {% endif %}
+      firewall_enable_ufw={{ firewall_enable_ufw }},
+      firewall_manage_rules={{ firewall_manage_rules }} — ambos en false,
+      ninguna regla se crea ni se modifica en el Checkpoint 7.2A. Tabla de
+      puertos futura documentada en
+      infra/ansible/roles/firewall/README.md (8472/udp NUNCA se propone
+      abrir públicamente — es tráfico VXLAN entre nodos).

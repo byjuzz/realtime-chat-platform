@@ -1,0 +1,12 @@
+---
+# En el Checkpoint 7.2A: confirma de forma no destructiva que RKE2 y
+# Kubernetes todavía no existen (estado esperado). No lee node-token, no
+# muestra certificados, no ejecuta kubectl (Kubernetes todavía no existe).
+# Resultado esperado: changed=0.
+- name: "Validar estado de RKE2/Kubernetes (no destructivo)"
+  hosts: rke2_servers
+  gather_facts: true
+  become: false
+  roles:
+    - role: validation
+      tags: [validation, audit]

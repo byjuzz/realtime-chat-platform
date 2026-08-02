@@ -1,0 +1,30 @@
+---
+# Checkpoint 7.2A: SOLO auditoría/preflight. Ningún rol invocado aquí
+# modifica el sistema todavía (todos sus guards están en `false`) — ver
+# infra/ansible/roles/*/README.md para el detalle de cada uno.
+#
+# Grupo de inventario: rke2_servers (no devops_lab) — se mantiene el mismo
+# grupo ya definido y validado en la Fase 7.1
+# (infra/ansible/inventories/lab/hosts.yml.example, usado también por
+# validate-connectivity.yml), para no romper ese playbook ya funcional ni
+# reescribir el inventario sin autorización explícita de este checkpoint.
+#
+# become: false — deliberado en 7.2A. Algunos chequeos (p. ej. `ufw
+# status`) no pueden completarse sin privilegios y lo reportan
+# honestamente como "no determinable", en vez de escalar privilegios para
+# evitarlo. Ver infra/ansible/roles/firewall/README.md.
+#
+# Resultado esperado: changed=0.
+- name: "Preparar devops-lab (auditoría no destructiva — Checkpoint 7.2A)"
+  hosts: rke2_servers
+  gather_facts: true
+  become: false
+  roles:
+    - role: validation
+      tags: [validation, audit, prepare]
+    - role: common
+      tags: [common, audit, prepare]
+    - role: system_prerequisites
+      tags: [prerequisites, audit, prepare]
+    - role: firewall
+      tags: [firewall, audit, prepare]

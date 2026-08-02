@@ -1,0 +1,21 @@
+---
+# Checkpoint 7.2A: orquesta ÚNICAMENTE preparación (auditoría) y
+# validación. install-rke2.yml se incorporará aquí solo después de:
+#   1. aumentar la RAM de devops-lab a 8 GiB, o aprobar explícitamente
+#      continuar con la RAM actual (~5.8 GiB);
+#   2. crear un snapshot de VirtualBox;
+#   3. aprobar los cambios de sysctl/kernel propuestos por
+#      system_prerequisites;
+#   4. aprobar la política de firewall propuesta por firewall;
+#   5. fijar la versión y el checksum reales de RKE2 (rke2_version,
+#      rke2_checksum);
+#   6. autorizar explícitamente la instalación real
+#      (rke2_install_authorized: true).
+#
+# Ninguna de esas seis aprobaciones existe todavía. Resultado esperado de
+# este playbook en el Checkpoint 7.2A: changed=0.
+- name: "Sitio completo — Checkpoint 7.2A (preparación, sin instalar RKE2)"
+  ansible.builtin.import_playbook: prepare-server.yml
+
+- name: "Sitio completo — Checkpoint 7.2A (validación)"
+  ansible.builtin.import_playbook: validate-rke2.yml

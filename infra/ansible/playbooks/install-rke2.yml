@@ -1,0 +1,33 @@
+---
+# CONTRATO DE FUTURA EJECUCIÓN — no un instalador activo en el
+# Checkpoint 7.2A.
+#
+# No forma parte de site.yml todavía (ver ese archivo). Requiere
+# rke2_install_authorized: true (default: false, ver
+# infra/ansible/roles/rke2_server/defaults/main.yml) para siquiera invocar
+# el rol rke2_server. Aunque ese guard estuviera en true, el rol todavía
+# no contiene ninguna tarea de instalación real en este checkpoint — ver
+# infra/ansible/roles/rke2_server/tasks/main.yml.
+#
+# No descarga nada, no instala nada, no crea /etc/rancher/rke2/config.yaml,
+# no inicia ningún servicio.
+- name: "Instalar RKE2 (deshabilitado hasta autorización explícita — Checkpoint 7.2A)"
+  hosts: rke2_servers
+  gather_facts: true
+  become: false
+  tasks:
+    - name: "install-rke2 | reportar el guard de autorización"
+      ansible.builtin.debug:
+        msg: >-
+          rke2_install_authorized={{ rke2_install_authorized | default(false) }}.
+          Este playbook no instala nada en el Checkpoint 7.2A: el rol
+          rke2_server todavía no contiene tareas de instalación real (ver
+          infra/ansible/roles/rke2_server/README.md). Incluso con el guard
+          en true, no ocurriría ninguna instalación hasta que un
+          checkpoint futuro (7.2C/7.3) agregue esas tareas de forma
+          explícita y aprobada.
+
+  roles:
+    - role: rke2_server
+      tags: [rke2, install]
+      when: rke2_install_authorized | default(false) | bool

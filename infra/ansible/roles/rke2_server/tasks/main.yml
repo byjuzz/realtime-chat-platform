@@ -1,0 +1,37 @@
+---
+# Rol "rke2_server" — Checkpoint 7.2A: SOLO PREFLIGHT.
+#
+# Ninguna tarea de este archivo descarga, instala, escribe en
+# /etc/rancher/rke2, ni toca ningún servicio. Es deliberado: install-rke2.yml
+# solo invoca este rol cuando rke2_install_authorized es true, pero aunque
+# esa variable se activara, este archivo todavía no tiene tareas de
+# instalación real — el guard y la ausencia de tareas son dos capas de
+# protección independientes.
+
+- name: "rke2_server | comprobar si el binario rke2 existe"
+  ansible.builtin.stat:
+    path: /usr/local/bin/rke2
+  register: rke2_server_binary
+
+- name: "rke2_server | comprobar si el directorio de configuración existe"
+  ansible.builtin.stat:
+    path: /etc/rancher/rke2
+  register: rke2_server_config_dir
+
+- name: "rke2_server | comprobar si el servicio systemd existe"
+  ansible.builtin.stat:
+    path: /etc/systemd/system/rke2-server.service
+  register: rke2_server_service_unit
+
+- name: "rke2_server | reportar estado (preflight, sin cambios)"
+  ansible.builtin.debug:
+    msg: >-
+      [rke2_server] binario presente={{ rke2_server_binary.stat.exists }};
+      /etc/rancher/rke2 presente={{ rke2_server_config_dir.stat.exists }};
+      unidad systemd presente={{ rke2_server_service_unit.stat.exists }}.
+      rke2_install_authorized={{ rke2_install_authorized }}.
+      Variables pendientes de aprobación: rke2_version={{ rke2_version }},
+      rke2_checksum={{ rke2_checksum }}, rke2_cni={{ rke2_cni }},
+      rke2_ingress_controller={{ rke2_ingress_controller }}.
+      Este rol todavía no contiene tareas de instalación real en el
+      Checkpoint 7.2A — ver infra/ansible/roles/rke2_server/README.md.

@@ -1,0 +1,37 @@
+---
+# Guards: en false, este rol NUNCA habilita/deshabilita ufw ni crea/borra
+# reglas, sin importar la tabla de puertos de abajo.
+firewall_manage_rules: false
+firewall_enable_ufw: false
+
+# Tabla conceptual de puertos futura (referencia para 7.2C+, no aplicada
+# todavía). Diferencia el origen/alcance de cada puerto explícitamente.
+firewall_future_ports:
+  - port: 22
+    proto: tcp
+    scope: "Administrativo — Windows (SSH) hacia devops-lab"
+    purpose: "Acceso SSH del desarrollador"
+  - port: 6443
+    proto: tcp
+    scope: "Nodo único — loopback/LAN del laboratorio"
+    purpose: "API server de Kubernetes"
+  - port: 9345
+    proto: tcp
+    scope: "Nodo único — loopback/LAN del laboratorio"
+    purpose: "Supervisor RKE2 (registro de nodos, relevante si algún día hay agents)"
+  - port: 10250
+    proto: tcp
+    scope: "Nodo único — loopback/LAN del laboratorio"
+    purpose: "Kubelet (métricas, logs)"
+  - port: 2379
+    proto: tcp
+    scope: "Futuro — solo si etcd deja de ser embebido"
+    purpose: "etcd cliente"
+  - port: 2380
+    proto: tcp
+    scope: "Futuro — solo si algún día hay más de un nodo"
+    purpose: "etcd peer"
+  - port: 8472
+    proto: udp
+    scope: "Tráfico interno ENTRE NODOS del clúster — NUNCA expuesto a Internet ni al NAT público de VirtualBox"
+    purpose: "VXLAN (CNI tipo Flannel/Canal)"

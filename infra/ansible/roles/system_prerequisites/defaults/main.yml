@@ -1,0 +1,15 @@
+---
+# Guards: en false, este rol NUNCA modifica módulos del kernel, sysctl ni
+# swap, sin importar los valores de referencia de abajo. Se activan en un
+# checkpoint futuro (7.2C), tras aprobación explícita.
+system_prerequisites_manage_modules: false
+system_prerequisites_manage_sysctl: false
+system_prerequisites_manage_swap: false
+
+# Referencia documentada por RKE2/Kubernetes (no aplicada en 7.2A, solo se
+# usa para comparar contra el estado auditado).
+system_prerequisites_required_sysctl:
+  net.ipv4.ip_forward: "1"
+system_prerequisites_required_modules:
+  - overlay
+  - br_netfilter
