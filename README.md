@@ -36,17 +36,21 @@ El proyecto se desarrolla por fases controladas. La **Fase 6** está completa: r
 alineado a Node.js 24 LTS (6.0), Integración Continua con GitHub Actions (6.1), y
 `develop` protegida mediante required status checks (6.2).
 
-Fase actual: **Fase 7.1 — controlador Ansible preparado**. El controlador vive **dentro de
-`devops-lab`** (`ansible_connection: local`, decisión definitiva — no se usa WSL). Ya está
-instalado y validado (`ansible-core`/`ansible-lint` fijados, primer playbook no destructivo
-corrido con `changed=0`). **RKE2 sigue sin instalarse, Kubernetes no existe todavía, y
-GitHub Actions no tiene acceso a la VM.** Próxima fase: construir los roles/playbooks que
-preparan el sistema operativo e instalan RKE2.
+Fase actual: **Checkpoint 7.2A — bootstrap y roles de preparación (modo auditoría)**. El
+controlador Ansible vive **dentro de `devops-lab`** (`ansible_connection: local`, decisión
+definitiva — no se usa WSL), instalado y validado desde la Fase 7.1. Ya existen el bootstrap
+(`infra/bootstrap/bootstrap-controller.sh`) y los playbooks/roles de preparación
+(`prepare-server.yml`, `install-rke2.yml`, `validate-rke2.yml`, `site.yml`), pero **todos en
+modo auditoría/preflight** — ningún cambio real al sistema operativo todavía.
+**RKE2 sigue sin instalarse, Kubernetes no existe todavía, y GitHub Actions no tiene acceso a
+la VM.** Próximo checkpoint: aplicar la preparación real del sistema operativo (7.2B/7.2C),
+antes de instalar RKE2 (7.3).
 
 Ver [ADR-008](docs/adr/ADR-008-infrastructure-as-code-with-ansible.md), el
 [plan de arquitectura](docs/architecture/ansible-rke2-infrastructure-plan.md), la
-[guía de RKE2 desde cero](docs/learning/rke2-from-zero.md) y el
-[runbook de auditoría](docs/runbooks/ubuntu-rke2-readiness-audit.md).
+[guía de RKE2 desde cero](docs/learning/rke2-from-zero.md), el
+[runbook de auditoría](docs/runbooks/ubuntu-rke2-readiness-audit.md) y el
+[runbook del Checkpoint 7.2A](docs/runbooks/phase-7-2-bootstrap-and-server-preparation.md).
 
 La autenticación real, Kubernetes y el despliegue continuo todavía no se han implementado.
 
