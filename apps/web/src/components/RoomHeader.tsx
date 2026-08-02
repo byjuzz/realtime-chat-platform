@@ -31,6 +31,10 @@ export function RoomHeader({ room, connectionStatus, onOpenRoomDrawer }: RoomHea
           {STATUS_LABEL[connectionStatus]}
         </p>
       </div>
+      <div className="chat-header__brand" title="Hecho por Julio y Yocelin" aria-hidden="true">
+        <span className="chat-header__brand-initial chat-header__brand-initial--j">J</span>
+        <span className="chat-header__brand-initial chat-header__brand-initial--y">Y</span>
+      </div>
     </header>
   );
 }
