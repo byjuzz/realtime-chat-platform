@@ -1,0 +1,16 @@
+---
+# Umbrales documentados por RKE2 (mínimo) y por este proyecto
+# (recomendado, ver runbook de auditoría de la Fase 7.0). Estos valores
+# solo se usan para CLASIFICAR el estado observado — este rol nunca falla
+# el playbook solo por no cumplir la recomendación, únicamente por no
+# cumplir el mínimo documentado.
+validation_min_cpu_cores: 2
+validation_recommended_cpu_cores: 4
+
+validation_min_ram_mb: 3800 # RKE2 documenta 4 GB como mínimo; 3800 deja margen de redondeo
+validation_recommended_ram_mb: 8192
+
+validation_min_disk_free_gb: 20
+
+# Distribución/versión soportadas por este proyecto (ver ADR-008).
+validation_supported_distribution: "Ubuntu"

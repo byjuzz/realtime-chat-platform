@@ -1,0 +1,164 @@
+---
+# Rol "validation" — Checkpoint 7.2A: funcional y NO DESTRUCTIVO.
+#
+# A diferencia de los demás roles de este checkpoint, este SÍ puede fallar
+# el playbook (vía assert) cuando un requisito MÍNIMO documentado no se
+# cumple. No falla solo por no cumplir una RECOMENDACIÓN — eso se reporta
+# como advertencia, no como error (ver el caso de RAM más abajo).
+
+# --- Distribución, versión, arquitectura ------------------------------------
+
+- name: "validation | confirmar distribución soportada"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == validation_supported_distribution
+    fail_msg: "Distribución no soportada: {{ ansible_facts['distribution'] }} (se requiere {{ validation_supported_distribution }})."
+    success_msg: "Distribución: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}."
+
+- name: "validation | confirmar arquitectura amd64/x86_64"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] == "x86_64"
+    fail_msg: "Arquitectura no soportada: {{ ansible_facts['architecture'] }}."
+    success_msg: "Arquitectura: {{ ansible_facts['architecture'] }}."
+
+# --- systemd y Python ---------------------------------------------------
+
+- name: "validation | confirmar systemd como gestor de servicios"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['service_mgr'] == "systemd"
+    fail_msg: "Se requiere systemd; gestor detectado: {{ ansible_facts['service_mgr'] }}."
+    success_msg: "Gestor de servicios: systemd."
+
+- name: "validation | confirmar Python 3 remoto"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['python']['version']['major'] == 3
+    fail_msg: "Se requiere Python 3."
+    success_msg: >-
+      Python remoto: {{ ansible_facts['python']['version']['major'] }}.{{ ansible_facts['python']['version']['minor'] }}.
+
+# --- CPU: mínimo bloqueante, recomendado solo como advertencia -------------
+
+- name: "validation | calcular núcleos de CPU disponibles"
+  ansible.builtin.set_fact:
+    validation_cpu_cores: "{{ ansible_facts['processor_vcpus'] | default(ansible_facts['processor_count']) }}"
+
+- name: "validation | confirmar CPU mínima"
+  ansible.builtin.assert:
+    that:
+      - validation_cpu_cores | int >= validation_min_cpu_cores
+    fail_msg: "CPU insuficiente: {{ validation_cpu_cores }} núcleos (mínimo: {{ validation_min_cpu_cores }})."
+    success_msg: "CPU: {{ validation_cpu_cores }} núcleos (mínimo: {{ validation_min_cpu_cores }}, recomendado: {{ validation_recommended_cpu_cores }})."
+
+- name: "validation | advertir si la CPU no cumple lo recomendado"
+  ansible.builtin.debug:
+    msg: >-
+      [validation][advertencia] CPU cumple el mínimo ({{ validation_cpu_cores }} >= {{ validation_min_cpu_cores }})
+      pero no la recomendación de {{ validation_recommended_cpu_cores }} núcleos. No es bloqueante.
+  when: validation_cpu_cores | int < validation_recommended_cpu_cores | int
+
+# --- RAM: mínimo bloqueante, recomendado solo como advertencia -------------
+
+- name: "validation | confirmar RAM mínima"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['memtotal_mb'] | int >= validation_min_ram_mb
+    fail_msg: "RAM insuficiente: {{ ansible_facts['memtotal_mb'] }} MB (mínimo: {{ validation_min_ram_mb }} MB)."
+    success_msg: "RAM: {{ ansible_facts['memtotal_mb'] }} MB (mínimo: {{ validation_min_ram_mb }} MB, recomendado: {{ validation_recommended_ram_mb }} MB)."
+
+- name: "validation | advertir si la RAM no cumple lo recomendado (caso conocido: ~5.8 GiB)"
+  ansible.builtin.debug:
+    msg: >-
+      [validation][advertencia] RAM cumple el mínimo ({{ ansible_facts['memtotal_mb'] }} MB)
+      pero no cumple la recomendación de {{ validation_recommended_ram_mb }} MB (8 GiB).
+      No es bloqueante — decisión de aumentar RAM pendiente de aprobación (ver Fase 7.2C).
+  when: ansible_facts['memtotal_mb'] | int < validation_recommended_ram_mb | int
+
+# --- Disco -----------------------------------------------------------------
+
+- name: "validation | calcular espacio libre en /"
+  ansible.builtin.set_fact:
+    validation_root_mount: "{{ ansible_facts['mounts'] | selectattr('mount', 'equalto', '/') | first }}"
+
+- name: "validation | confirmar espacio libre en disco"
+  ansible.builtin.assert:
+    that:
+      - (validation_root_mount['size_available'] | int) >= (validation_min_disk_free_gb * 1024 * 1024 * 1024)
+    fail_msg: "Espacio libre insuficiente en / (mínimo: {{ validation_min_disk_free_gb }} GB)."
+    success_msg: >-
+      Espacio libre en /: {{ (validation_root_mount['size_available'] | int / (1024*1024*1024)) | round(1) }} GB
+      (mínimo: {{ validation_min_disk_free_gb }} GB).
+
+# --- Hostname, hora, DNS -----------------------------------------------------
+
+- name: "validation | confirmar hostname no vacío"
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['hostname'] | length > 0
+    success_msg: "Hostname: {{ ansible_facts['hostname'] }}."
+
+- name: "validation | comprobar sincronización horaria (NTP)"
+  ansible.builtin.command:
+    cmd: timedatectl show --property=NTPSynchronized --value
+  register: validation_ntp
+  changed_when: false
+  failed_when: false
+
+- name: "validation | comprobar resolución DNS de salida"
+  ansible.builtin.command:
+    cmd: getent hosts github.com
+  register: validation_dns
+  changed_when: false
+  failed_when: false
+
+# --- AppArmor y sudo ---------------------------------------------------------
+
+- name: "validation | comprobar estado de AppArmor"
+  ansible.builtin.command:
+    cmd: systemctl is-active apparmor
+  register: validation_apparmor
+  changed_when: false
+  failed_when: false
+
+- name: "validation | comprobar disponibilidad de sudo"
+  ansible.builtin.command:
+    cmd: sudo -n -v
+  register: validation_sudo
+  changed_when: false
+  failed_when: false
+
+# --- Presencia de RKE2 / Kubernetes (nunca deben existir todavía) ---------
+
+- name: "validation | comprobar si RKE2 está instalado"
+  ansible.builtin.stat:
+    path: /usr/local/bin/rke2
+  register: validation_rke2_binary
+
+- name: "validation | comprobar si existe kubeconfig de RKE2"
+  ansible.builtin.stat:
+    path: /etc/rancher/rke2/rke2.yaml
+  register: validation_kubeconfig
+
+- name: "validation | reportar estado de RKE2/Kubernetes"
+  ansible.builtin.debug:
+    msg: >-
+      [validation] RKE2 instalado={{ validation_rke2_binary.stat.exists }};
+      kubeconfig presente={{ validation_kubeconfig.stat.exists }}.
+      {{ 'RKE2 no instalado — estado esperado en Fase 7.2A.'
+         if not validation_rke2_binary.stat.exists
+         else 'ATENCIÓN: se esperaba RKE2 ausente en este checkpoint.' }}
+
+# --- Resumen final -----------------------------------------------------------
+
+- name: "validation | resumen final (auditoría, sin cambios)"
+  ansible.builtin.debug:
+    msg: >-
+      [validation] hostname={{ ansible_facts['hostname'] }};
+      NTP sincronizado={{ validation_ntp.stdout | default('desconocido') }};
+      DNS de salida resuelve={{ validation_dns.rc == 0 }};
+      AppArmor={{ validation_apparmor.stdout | default('desconocido') }};
+      sudo sin contraseña disponible={{ validation_sudo.rc == 0 }}
+      (si es false, no es un error: puede requerir contraseña interactiva,
+      ver runbook de auditoría de la Fase 7.0).

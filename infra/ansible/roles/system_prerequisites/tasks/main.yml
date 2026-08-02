@@ -1,0 +1,58 @@
+---
+# Rol "system_prerequisites" — Checkpoint 7.2A: SOLO AUDITORÍA.
+#
+# Todas las tareas de este archivo son de lectura (sysctl -n, lsmod,
+# swapon --show, systemctl is-active, timedatectl) — ninguna con
+# `become: true`, consistente con prepare-server.yml (become: false en
+# este checkpoint). No hay tareas de apt/copy/template/modprobe/sysctl/ufw
+# en este archivo todavía.
+
+- name: "system_prerequisites | leer net.ipv4.ip_forward"
+  ansible.builtin.command:
+    cmd: sysctl -n net.ipv4.ip_forward
+  register: system_prerequisites_ip_forward
+  changed_when: false
+  failed_when: false
+
+- name: "system_prerequisites | comprobar módulo br_netfilter cargado"
+  ansible.builtin.command:
+    cmd: grep -qs '^br_netfilter' /proc/modules
+  register: system_prerequisites_br_netfilter
+  changed_when: false
+  failed_when: false
+
+- name: "system_prerequisites | comprobar swap activo"
+  ansible.builtin.command:
+    cmd: swapon --show=NAME --noheadings
+  register: system_prerequisites_swap
+  changed_when: false
+  failed_when: false
+
+- name: "system_prerequisites | comprobar estado de AppArmor"
+  ansible.builtin.command:
+    cmd: systemctl is-active apparmor
+  register: system_prerequisites_apparmor
+  changed_when: false
+  failed_when: false
+
+- name: "system_prerequisites | comprobar sincronización horaria (NTP)"
+  ansible.builtin.command:
+    cmd: timedatectl show --property=NTPSynchronized --value
+  register: system_prerequisites_ntp
+  changed_when: false
+  failed_when: false
+
+- name: "system_prerequisites | reportar estado (auditoría, sin cambios)"
+  ansible.builtin.debug:
+    msg: >-
+      [system_prerequisites]
+      ip_forward={{ system_prerequisites_ip_forward.stdout | default('desconocido') }}
+      (requerido: {{ system_prerequisites_required_sysctl['net.ipv4.ip_forward'] }});
+      br_netfilter cargado={{ system_prerequisites_br_netfilter.rc == 0 }};
+      swap activo={{ (system_prerequisites_swap.stdout | default('')) | length > 0 }};
+      AppArmor={{ system_prerequisites_apparmor.stdout | default('desconocido') }};
+      NTP sincronizado={{ system_prerequisites_ntp.stdout | default('desconocido') }}.
+      Guards: manage_modules={{ system_prerequisites_manage_modules }},
+      manage_sysctl={{ system_prerequisites_manage_sysctl }},
+      manage_swap={{ system_prerequisites_manage_swap }} — todos en false,
+      ningún cambio se aplica en el Checkpoint 7.2A.

@@ -1,0 +1,35 @@
+---
+# Rol "common" — Checkpoint 7.2A: SOLO AUDITORÍA.
+#
+# No instala nada en este checkpoint, sin importar el valor de
+# common_manage_packages (el guard se reporta igual, mostrando su valor
+# actual, pero la tarea de instalación real todavía no existe aquí).
+
+- name: "common | auditar presencia de paquetes propuestos (dpkg-query, solo lectura)"
+  ansible.builtin.command:
+    cmd: "dpkg-query -W -f=${Status} {{ item }}"
+  register: common_package_check
+  changed_when: false
+  failed_when: false
+  loop: "{{ common_packages }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: "common | calcular paquetes propuestos que faltan"
+  ansible.builtin.set_fact:
+    common_missing_packages: >-
+      {{
+        common_package_check.results
+        | rejectattr('stdout', 'search', 'install ok installed')
+        | map(attribute='item')
+        | list
+      }}
+
+- name: "common | reportar estado (auditoría, sin cambios)"
+  ansible.builtin.debug:
+    msg: >-
+      [common] Paquetes propuestos: {{ common_packages }}.
+      Ausentes ahora mismo: {{ common_missing_packages }}.
+      common_manage_packages={{ common_manage_packages }} — en el
+      Checkpoint 7.2A este rol nunca instala, independientemente de este
+      valor. Ver infra/ansible/roles/common/README.md.

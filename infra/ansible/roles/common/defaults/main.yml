@@ -1,0 +1,14 @@
+---
+# Paquetes base propuestos para devops-lab. Solo se AUDITAN en el
+# Checkpoint 7.2A — la instalación real es una decisión de un checkpoint
+# futuro, activada explícitamente con common_manage_packages: true.
+common_packages:
+  - curl # descargar artefactos (p. ej. el binario de RKE2 en fases futuras)
+  - jq # parsear salidas JSON (checksums, respuestas de APIs)
+  - ca-certificates # verificar TLS al descargar sobre HTTPS
+  - gnupg # verificar firmas de paquetes/artefactos, si aplica más adelante
+
+# Guard: en false, este rol NUNCA instala nada, sin importar qué contenga
+# common_packages. Cambiarlo a true es una decisión explícita de un
+# checkpoint futuro (7.2C en adelante), no de este.
+common_manage_packages: false

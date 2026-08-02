@@ -67,8 +67,14 @@ se aprueba antes de tocar archivos.
 
 ## Infraestructura como código (Ansible / RKE2)
 
-- Estado (Fase 7.1): **controlador Ansible instalado y validado**. RKE2 y Kubernetes siguen
-  sin instalarse; GitHub Actions no tiene acceso a `devops-lab`.
+- Estado (Checkpoint 7.2A): **controlador Ansible instalado y validado** (Fase 7.1).
+  Bootstrap (`infra/bootstrap/bootstrap-controller.sh`) y playbooks/roles de preparación
+  (`prepare-server.yml`, `install-rke2.yml`, `validate-rke2.yml`, `site.yml`, roles
+  `common`/`system_prerequisites`/`firewall`/`rke2_server`/`validation`) ya existen, pero
+  **solo en modo auditoría/preflight** — ningún guard está activado, ningún cambio real se
+  aplicó. RKE2 y Kubernetes siguen sin instalarse; GitHub Actions no tiene acceso a
+  `devops-lab`. Ver
+  [runbook del Checkpoint 7.2A](docs/runbooks/phase-7-2-bootstrap-and-server-preparation.md).
 - **Decisión de arquitectura definitiva**: `devops-lab` es a la vez controlador Ansible
   (`ansible_connection: local`) y nodo administrado — **no se usa WSL** (alternativa
   considerada y descartada explícitamente, ver ADR-008). Windows es solo anfitrión de
@@ -90,10 +96,9 @@ se aprueba antes de tocar archivos.
   Kubernetes administra los workloads. Ninguna herramienta invade el territorio de la otra.
 - `sudo` sin contraseña en `devops-lab`: **acotado únicamente a `/usr/bin/apt-get`**
   (`/etc/sudoers.d/juzz-apt-nopasswd`), no acceso root total.
-- Próxima fase: construir `infra/bootstrap/bootstrap-controller.sh` y los playbooks/roles
-  funcionales (`prepare-server.yml`, `install-rke2.yml`, `validate-rke2.yml`, `site.yml`,
-  roles `common`/`system_prerequisites`/`firewall`/`rke2_server`/`validation`) — ninguno
-  existe todavía.
+- Próximo checkpoint (7.2B): implementar preparación declarativa real de Ubuntu, validada en
+  modo `--check` (sin aplicar todavía). 7.2C aplica los cambios reales (previa RAM/snapshot/
+  aprobaciones); 7.3 instala RKE2 de verdad.
 
 ## Convenciones
 

@@ -1,0 +1,16 @@
+---
+# Guard principal: en false, install-rke2.yml no ejecuta este rol en
+# absoluto (ver el `when` del playbook). Incluso si se pusiera en true por
+# error, este rol NO CONTIENE todavía ninguna tarea de instalación real —
+# ver tasks/main.yml. Activar este guard sin que existan esas tareas no
+# tiene ningún efecto.
+rke2_install_authorized: false
+
+# Placeholders explícitos — nunca "latest", nunca fijados silenciosamente.
+# Cada uno se completa en un checkpoint futuro, verificado contra la
+# documentación oficial de RKE2 en el momento de instalar de verdad, no
+# copiado de una versión vista hoy.
+rke2_version: "<pendiente-de-aprobación>"
+rke2_checksum: "<pendiente-de-aprobación>"
+rke2_cni: "<pendiente-de-aprobación>"
+rke2_ingress_controller: "<pendiente-de-aprobación>"
