@@ -60,7 +60,7 @@ describe("ChatService.listRooms / findRoomBySlug", () => {
 
 describe("ChatService.createRoom", () => {
   it("crea una sala nueva con éxito", async () => {
-    const result = await chatService.createRoom("Tecnología", "tecnologia");
+    const result = await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.room.slug).toBe("tecnologia");
@@ -69,8 +69,8 @@ describe("ChatService.createRoom", () => {
   });
 
   it("retorna SLUG_CONFLICT si el slug ya existe (autoridad final: el repositorio/DB)", async () => {
-    await chatService.createRoom("Tecnología", "tecnologia");
-    const second = await chatService.createRoom("Tecnología otra vez", "tecnologia");
+    await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
+    const second = await chatService.createRoom("Tecnología otra vez", "tecnologia", { isPrivate: false, creatorId: null });
     expect(second.ok).toBe(false);
     if (!second.ok) expect(second.reason).toBe("SLUG_CONFLICT");
   });
@@ -128,7 +128,7 @@ describe("ChatService.getHistory", () => {
 
   it("aísla el historial por sala: mensajes de otra sala no aparecen", async () => {
     const guest = await guestUsers.create("Ada");
-    const otherRoom = await chatService.createRoom("Tecnología", "tecnologia");
+    const otherRoom = await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
     if (!otherRoom.ok) throw new Error("setup failed");
 
     await chatService.sendMessage({ text: "en general", guestUserId: guest.id, roomId: generalRoomId });

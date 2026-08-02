@@ -22,6 +22,14 @@ export const VALIDATION = {
   ROOM_NAME_MIN_LENGTH: 2,
   ROOM_NAME_MAX_LENGTH: 60,
   ROOM_SLUG_MAX_LENGTH: 60,
+  /** Tiempo máximo que una solicitud de ingreso a una sala privada espera aprobación del creador antes de expirar. */
+  JOIN_REQUEST_TTL_MS: 60_000,
+  /**
+   * Prototipo de imágenes: tamaño máximo del data URL base64 (~1.5MB de
+   * imagen real, la codificación base64 agrega ~33% de overhead). Guardado
+   * directo en la fila del mensaje — no apto para producción.
+   */
+  IMAGE_DATA_URL_MAX_LENGTH: 2_000_000,
 } as const;
 
 /** Slugs que ninguna sala creada por usuarios puede usar. */
@@ -46,6 +54,8 @@ export interface ChatMessage {
   authorId: string;
   authorName: string;
   text: string;
+  /** Prototipo: data URL base64 (p. ej. "data:image/png;base64,..."), opcional. */
+  imageData?: string | null;
   ts: number;
 }
 
@@ -54,6 +64,9 @@ export interface PublicRoom {
   name: string;
   slug: string;
   createdAt: number; // epoch ms
+  isPrivate: boolean;
+  /** guestUserId de quien creó la sala, o null para salas sin creador (p. ej. "general"). */
+  creatorId: string | null;
   /** Conteo de guestUserId distintos conectados ahora mismo, en memoria. */
   connectedUsers?: number;
 }
@@ -69,7 +82,15 @@ export type ErrorCode =
   | "RATE_LIMITED"
   | "MESSAGE_PERSISTENCE_FAILED"
   | "ROOM_NOT_FOUND"
-  | "ROOM_SLUG_CONFLICT";
+  | "ROOM_SLUG_CONFLICT"
+  | "GUEST_IDENTITY_REQUIRED"
+  | "JOIN_PENDING_APPROVAL"
+  | "JOIN_REJECTED"
+  | "JOIN_EXPIRED"
+  | "JOIN_REQUEST_NOT_FOUND"
+  | "NOT_ROOM_CREATOR"
+  | "INVALID_IMAGE"
+  | "IMAGE_TOO_LARGE";
 
 export interface ErrorResponse {
   ok: false;
@@ -103,6 +124,9 @@ export interface RoomListResponse {
 
 export interface CreateRoomRequest {
   name: string;
+  isPrivate?: boolean;
+  /** Requerido si isPrivate es true: quien crea la sala queda como su único aprobador. */
+  guestUserId?: string;
 }
 
 export interface CreateRoomResponse {
@@ -117,7 +141,13 @@ export interface RoomJoinPayload {
   roomSlug: string;
 }
 
-export type RoomJoinAck = AckResponse<{ user: PublicUser; room: PublicRoom; users: PublicUser[] }>;
+export interface RoomJoinData {
+  user: PublicUser;
+  room: PublicRoom;
+  users: PublicUser[];
+}
+
+export type RoomJoinAck = AckResponse<RoomJoinData>;
 
 export type RoomLeavePayload = Record<string, never>; // el servidor infiere la sala del socket, no del payload
 
@@ -125,6 +155,8 @@ export type RoomLeaveAck = AckResponse<Record<string, never>>;
 
 export interface MessageSendPayload {
   text: string; // sin roomId: el servidor determina la sala activa del socket, nunca confía en el cliente
+  /** Prototipo: data URL base64 opcional. Si se envía, `text` puede ir vacío (funciona como pie de foto opcional). */
+  imageData?: string;
 }
 
 // --- Payloads Socket.IO (servidor -> cliente) ---
@@ -139,11 +171,40 @@ export interface RoomUsersPayload {
   users: PublicUser[];
 }
 
+// --- Solicitudes de ingreso a salas privadas ---
+
+/** Emitido al creador cuando alguien más pide entrar a su sala privada. */
+export interface RoomJoinRequestPayload {
+  requestId: string;
+  roomId: string;
+  requester: PublicUser;
+  expiresAt: number; // epoch ms
+}
+
+export interface RoomApprovePayload {
+  requestId: string;
+  guestUserId: string; // identidad de quien aprueba, debe coincidir con el creator de la sala
+}
+
+export type RoomApproveAck = AckResponse<Record<string, never>>;
+
+export interface RoomRejectPayload {
+  requestId: string;
+  guestUserId: string; // identidad de quien rechaza, debe coincidir con el creator de la sala
+}
+
+export type RoomRejectAck = AckResponse<Record<string, never>>;
+
+/** Emitido al solicitante cuando su solicitud de ingreso se resuelve (aprobada, rechazada o expirada). */
+export type RoomJoinResolvedPayload = RoomJoinAck;
+
 // --- Eventos ---
 
 export interface ClientToServerEvents {
   "room:join": (payload: RoomJoinPayload, ack: (response: RoomJoinAck) => void) => void;
   "room:leave": (payload: RoomLeavePayload, ack: (response: RoomLeaveAck) => void) => void;
+  "room:approve": (payload: RoomApprovePayload, ack: (response: RoomApproveAck) => void) => void;
+  "room:reject": (payload: RoomRejectPayload, ack: (response: RoomRejectAck) => void) => void;
   "message:send": (payload: MessageSendPayload, ack: (response: MessageAck) => void) => void;
 }
 
@@ -151,5 +212,7 @@ export interface ServerToClientEvents {
   "room:joined": (payload: RoomPresenceEventPayload) => void;
   "room:left": (payload: RoomPresenceEventPayload) => void;
   "room:users": (payload: RoomUsersPayload) => void;
+  "room:join-request": (payload: RoomJoinRequestPayload) => void;
+  "room:join-resolved": (payload: RoomJoinResolvedPayload) => void;
   "message:new": (message: ChatMessage) => void;
 }

@@ -142,7 +142,7 @@ describe("socket server - unión y presencia por sala", () => {
 
 describe("socket server - aislamiento entre salas", () => {
   it("usuarios en salas distintas no reciben mensajes ajenos", async () => {
-    await roomRepository.create({ name: "Tecnología", slug: "tecnologia" });
+    await roomRepository.create({ name: "Tecnología", slug: "tecnologia", isPrivate: false, creatorId: null });
 
     const a = await connectClient(); // general
     const b = await connectClient(); // tecnologia
@@ -185,7 +185,7 @@ describe("socket server - aislamiento entre salas", () => {
 
 describe("socket server - cambio de sala", () => {
   it("cambiar de sala actualiza la presencia en la sala anterior y en la nueva", async () => {
-    await roomRepository.create({ name: "Tecnología", slug: "tecnologia" });
+    await roomRepository.create({ name: "Tecnología", slug: "tecnologia", isPrivate: false, creatorId: null });
 
     const a = await connectClient();
     const observer = await connectClient();
@@ -210,7 +210,7 @@ describe("socket server - cambio de sala", () => {
   });
 
   it("un mensaje enviado tras cambiar de sala llega a la nueva sala, no a la anterior", async () => {
-    await roomRepository.create({ name: "Tecnología", slug: "tecnologia" });
+    await roomRepository.create({ name: "Tecnología", slug: "tecnologia", isPrivate: false, creatorId: null });
 
     const a = await connectClient();
     const inGeneral = await connectClient();

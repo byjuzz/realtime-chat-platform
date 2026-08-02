@@ -95,16 +95,16 @@ describe("persistencia real con PostgreSQL - identidad y mensajes", () => {
 
 describe("persistencia real con PostgreSQL - salas múltiples", () => {
   it("crea varias salas con slugs únicos", async () => {
-    const a = await chatService.createRoom("Tecnología", "tecnologia");
-    const b = await chatService.createRoom("Deportes", "deportes");
+    const a = await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
+    const b = await chatService.createRoom("Deportes", "deportes", { isPrivate: false, creatorId: null });
     expect(a.ok).toBe(true);
     expect(b.ok).toBe(true);
   });
 
   it("rechaza un slug duplicado con SLUG_CONFLICT, aun ante inserciones concurrentes", async () => {
     const [first, second] = await Promise.all([
-      chatService.createRoom("Tecnología", "tecnologia"),
-      chatService.createRoom("Tecnología (otra)", "tecnologia"),
+      chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null }),
+      chatService.createRoom("Tecnología (otra)", "tecnologia", { isPrivate: false, creatorId: null }),
     ]);
     const results = [first, second];
     expect(results.filter((r) => r.ok)).toHaveLength(1);
@@ -114,14 +114,14 @@ describe("persistencia real con PostgreSQL - salas múltiples", () => {
   });
 
   it("lista todas las salas, incluida la general", async () => {
-    await chatService.createRoom("Tecnología", "tecnologia");
+    await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
     const rooms = await chatService.listRooms();
     expect(rooms.some((r) => r.slug === "general")).toBe(true);
     expect(rooms.some((r) => r.slug === "tecnologia")).toBe(true);
   });
 
   it("recupera una sala por slug", async () => {
-    await chatService.createRoom("Tecnología", "tecnologia");
+    await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
     const room = await chatService.findRoomBySlug("tecnologia");
     expect(room?.name).toBe("Tecnología");
   });
@@ -129,7 +129,7 @@ describe("persistencia real con PostgreSQL - salas múltiples", () => {
   it("aísla los mensajes de salas diferentes, cada uno con su propio historial paginado", async () => {
     const guest = await chatService.resolveGuestUser("Ada");
     if (!guest.ok) throw new Error("setup failed");
-    const tech = await chatService.createRoom("Tecnología", "tecnologia");
+    const tech = await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
     if (!tech.ok) throw new Error("setup failed");
 
     await chatService.sendMessage({ text: "en general", guestUserId: guest.guestUserId, roomId: generalRoomId });
@@ -148,7 +148,7 @@ describe("persistencia real con PostgreSQL - salas múltiples", () => {
   it("mantiene integridad referencial: los mensajes de una sala apuntan al roomId correcto", async () => {
     const guest = await chatService.resolveGuestUser("Ada");
     if (!guest.ok) throw new Error("setup failed");
-    const tech = await chatService.createRoom("Tecnología", "tecnologia");
+    const tech = await chatService.createRoom("Tecnología", "tecnologia", { isPrivate: false, creatorId: null });
     if (!tech.ok) throw new Error("setup failed");
 
     await chatService.sendMessage({ text: "hola", guestUserId: guest.guestUserId, roomId: tech.room.id });

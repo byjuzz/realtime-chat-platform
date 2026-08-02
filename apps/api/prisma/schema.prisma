@@ -13,17 +13,21 @@ model GuestUser {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   messages    Message[]
+  createdRooms Room[]
 
   @@map("guest_users")
 }
 
 model Room {
-  id        String    @id @default(uuid())
-  name      String    @db.VarChar(60)
-  slug      String    @unique @db.VarChar(60)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
+  id          String     @id @default(uuid())
+  name        String     @db.VarChar(60)
+  slug        String     @unique @db.VarChar(60)
+  isPrivate   Boolean    @default(false)
+  creatorId   String?
+  creator     GuestUser? @relation(fields: [creatorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  messages    Message[]
 
   @@map("rooms")
 }
@@ -31,6 +35,8 @@ model Room {
 model Message {
   id        String    @id @default(uuid())
   text      String    @db.VarChar(500)
+  /** Prototipo: imagen como data URL base64, guardada directo en la fila. No apto para producción (ver docs/adr si se formaliza). */
+  imageData String?   @db.Text
   authorId  String
   author    GuestUser @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   roomId    String

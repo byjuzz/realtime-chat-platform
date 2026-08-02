@@ -1,16 +1,21 @@
 import type { Server as HttpServer } from "node:http";
 import { Server, type Socket } from "socket.io";
 import {
+  VALIDATION,
   type ChatMessage,
   type ClientToServerEvents,
   type PublicUser,
+  type RoomJoinAck,
   type ServerToClientEvents,
-  validateMessageText,
   validateName,
+  validateOutgoingMessage,
 } from "@realtime-chat/shared";
 import { RoomPresenceState } from "./presence/roomPresenceState.js";
 import { SocketRateLimiter } from "./presence/rateLimiter.js";
+import { GuestSocketRegistry } from "./presence/guestSocketRegistry.js";
+import { JoinRequestState } from "./presence/joinRequestState.js";
 import { ChatService } from "./services/chatService.js";
+import type { RoomRecord } from "./repositories/roomRepository.js";
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -26,9 +31,53 @@ export function createSocketServer(
   });
 
   const rateLimiter = new SocketRateLimiter();
+  const guestSockets = new GuestSocketRegistry();
+  const joinRequests = new JoinRequestState();
 
   function broadcastRoomUsers(roomId: string): void {
     io.to(roomId).emit("room:users", { roomId, users: presence.listConsolidated(roomId) });
+  }
+
+  /**
+   * Completa la unión de `socket` a `room` (sala pública, o privada ya
+   * aprobada) y devuelve el ack correspondiente. Se usa tanto para joins
+   * directos como para joins que quedaron pendientes de aprobación.
+   */
+  function finalizeJoin(socket: AppSocket, room: RoomRecord, user: PublicUser): RoomJoinAck {
+    const { previousRoomId } = presence.joinRoom(socket.id, room.id, user.guestUserId, user.name);
+    socket.join(room.id);
+
+    if (previousRoomId) {
+      socket.leave(previousRoomId);
+      if (presence.isGuestAbsentFromRoom(previousRoomId, user.guestUserId)) {
+        io.to(previousRoomId).emit("room:left", { roomId: previousRoomId, user });
+      }
+      broadcastRoomUsers(previousRoomId);
+    }
+
+    // countSocketsForGuestInRoom incluye el socket recién unido, por eso > 1
+    // significa "ya tenía otra pestaña aquí".
+    const guestWasAlreadyInNewRoom = presence.countSocketsForGuestInRoom(room.id, user.guestUserId) > 1;
+    if (!guestWasAlreadyInNewRoom) {
+      socket.to(room.id).emit("room:joined", { roomId: room.id, user });
+    }
+    broadcastRoomUsers(room.id);
+
+    return {
+      ok: true,
+      data: {
+        user,
+        room: {
+          id: room.id,
+          name: room.name,
+          slug: room.slug,
+          createdAt: room.createdAt.getTime(),
+          isPrivate: room.isPrivate,
+          creatorId: room.creatorId,
+        },
+        users: presence.listConsolidated(room.id),
+      },
+    };
   }
 
   io.on("connection", (socket: AppSocket) => {
@@ -64,39 +113,113 @@ export function createSocketServer(
           return;
         }
 
-        // 3. Solo ahora, con la sala destino validada, salir de la sala anterior (si había).
-        const { previousRoomId } = presence.joinRoom(socket.id, room.id, guestResult.guestUserId, nameResult.value);
-        socket.join(room.id);
+        guestSockets.register(socket.id, guestResult.guestUserId);
+        const user: PublicUser = { id: guestResult.guestUserId, name: nameResult.value, guestUserId: guestResult.guestUserId };
 
-        if (previousRoomId) {
-          socket.leave(previousRoomId);
-          if (presence.isGuestAbsentFromRoom(previousRoomId, guestResult.guestUserId)) {
-            io.to(previousRoomId).emit("room:left", {
-              roomId: previousRoomId,
-              user: { id: guestResult.guestUserId, name: nameResult.value, guestUserId: guestResult.guestUserId },
+        // 3. Sala privada y quien pide entrar no es su creador: queda pendiente de aprobación.
+        if (room.isPrivate && room.creatorId !== guestResult.guestUserId) {
+          if (!room.creatorId) {
+            ack({ ok: false, code: "JOIN_REJECTED", message: "Esta sala privada no tiene un creador válido." });
+            return;
+          }
+
+          const request = joinRequests.create(
+            {
+              roomId: room.id,
+              roomSlug: room.slug,
+              creatorId: room.creatorId,
+              requesterSocketId: socket.id,
+              requester: user,
+            },
+            VALIDATION.JOIN_REQUEST_TTL_MS,
+            (expired) => {
+              const requesterSocket = io.sockets.sockets.get(expired.requesterSocketId);
+              requesterSocket?.emit("room:join-resolved", {
+                ok: false,
+                code: "JOIN_EXPIRED",
+                message: "Nadie aprobó tu solicitud a tiempo.",
+              });
+            }
+          );
+
+          ack({
+            ok: false,
+            code: "JOIN_PENDING_APPROVAL",
+            message: "Esperando aprobación del creador de la sala.",
+          });
+
+          for (const creatorSocketId of guestSockets.getSocketIds(room.creatorId)) {
+            io.to(creatorSocketId).emit("room:join-request", {
+              requestId: request.requestId,
+              roomId: room.id,
+              requester: user,
+              expiresAt: request.expiresAt,
             });
           }
-          broadcastRoomUsers(previousRoomId);
+          return;
         }
 
-        // 4. Notificar a la nueva sala solo si este guest no estaba ya presente ahí por otro socket
-        // (countSocketsForGuestInRoom incluye el socket recién unido, por eso > 1 significa "ya tenía otra pestaña aquí").
-        const guestWasAlreadyInNewRoom = presence.countSocketsForGuestInRoom(room.id, guestResult.guestUserId) > 1;
-        const user: PublicUser = { id: guestResult.guestUserId, name: nameResult.value, guestUserId: guestResult.guestUserId };
-        if (!guestWasAlreadyInNewRoom) {
-          socket.to(room.id).emit("room:joined", { roomId: room.id, user });
-        }
-        broadcastRoomUsers(room.id);
-
-        ack({
-          ok: true,
-          data: {
-            user,
-            room: { id: room.id, name: room.name, slug: room.slug, createdAt: room.createdAt.getTime() },
-            users: presence.listConsolidated(room.id),
-          },
-        });
+        // 4. Sala pública, o privada y quien pide entrar es su propio creador: join directo.
+        ack(finalizeJoin(socket, room, user));
       })();
+    });
+
+    socket.on("room:approve", (payload, ack) => {
+      const requestId = payload?.requestId;
+      const guestUserId = payload?.guestUserId;
+      if (typeof requestId !== "string" || typeof guestUserId !== "string") {
+        ack({ ok: false, code: "JOIN_REQUEST_NOT_FOUND", message: "Solicitud inválida." });
+        return;
+      }
+
+      const pending = joinRequests.get(requestId);
+      if (!pending) {
+        ack({ ok: false, code: "JOIN_REQUEST_NOT_FOUND", message: "La solicitud ya no existe (pudo expirar)." });
+        return;
+      }
+      if (pending.creatorId !== guestUserId) {
+        ack({ ok: false, code: "NOT_ROOM_CREATOR", message: "Solo el creador de la sala puede aprobar solicitudes." });
+        return;
+      }
+
+      joinRequests.resolve(requestId);
+      ack({ ok: true, data: {} });
+
+      void (async () => {
+        const room = await chatService.findRoomBySlug(pending.roomSlug);
+        const requesterSocket = io.sockets.sockets.get(pending.requesterSocketId);
+        if (!room || !requesterSocket) return; // el solicitante se desconectó, o la sala ya no existe
+        requesterSocket.emit("room:join-resolved", finalizeJoin(requesterSocket, room, pending.requester));
+      })();
+    });
+
+    socket.on("room:reject", (payload, ack) => {
+      const requestId = payload?.requestId;
+      const guestUserId = payload?.guestUserId;
+      if (typeof requestId !== "string" || typeof guestUserId !== "string") {
+        ack({ ok: false, code: "JOIN_REQUEST_NOT_FOUND", message: "Solicitud inválida." });
+        return;
+      }
+
+      const pending = joinRequests.get(requestId);
+      if (!pending) {
+        ack({ ok: false, code: "JOIN_REQUEST_NOT_FOUND", message: "La solicitud ya no existe (pudo expirar)." });
+        return;
+      }
+      if (pending.creatorId !== guestUserId) {
+        ack({ ok: false, code: "NOT_ROOM_CREATOR", message: "Solo el creador de la sala puede rechazar solicitudes." });
+        return;
+      }
+
+      joinRequests.resolve(requestId);
+      ack({ ok: true, data: {} });
+
+      const requesterSocket = io.sockets.sockets.get(pending.requesterSocketId);
+      requesterSocket?.emit("room:join-resolved", {
+        ok: false,
+        code: "JOIN_REJECTED",
+        message: "El creador de la sala rechazó tu solicitud.",
+      });
     });
 
     socket.on("room:leave", (_payload, ack) => {
@@ -123,7 +246,7 @@ export function createSocketServer(
         return;
       }
 
-      const result = validateMessageText(payload?.text);
+      const result = validateOutgoingMessage(payload?.text, payload?.imageData);
       if (!result.valid) {
         ack(result.error);
         return;
@@ -150,7 +273,8 @@ export function createSocketServer(
         }
 
         const sendResult = await chatService.sendMessage({
-          text: result.value,
+          text: result.value.text,
+          imageData: result.value.imageData,
           guestUserId: author.guestUserId,
           roomId,
         });
@@ -176,6 +300,9 @@ export function createSocketServer(
     });
 
     socket.on("disconnect", () => {
+      joinRequests.deleteByRequesterSocket(socket.id);
+      guestSockets.unregister(socket.id);
+
       const left = presence.disconnect(socket.id);
       rateLimiter.clear(socket.id);
       if (!left) return;

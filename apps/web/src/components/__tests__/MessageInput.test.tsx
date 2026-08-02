@@ -12,7 +12,7 @@ describe("MessageInput", () => {
     await userEvent.type(input, "hola mundo");
     await userEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
-    expect(onSend).toHaveBeenCalledWith("hola mundo");
+    expect(onSend).toHaveBeenCalledWith("hola mundo", undefined);
     expect(input.value).toBe("");
   });
 

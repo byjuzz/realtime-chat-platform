@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 export interface MessageRecord {
   id: string;
   text: string;
+  imageData: string | null;
   authorId: string;
   authorName: string;
   roomId: string;
@@ -15,7 +16,7 @@ export interface MessageCursor {
 }
 
 export interface IMessageRepository {
-  create(params: { text: string; authorId: string; roomId: string }): Promise<MessageRecord>;
+  create(params: { text: string; imageData?: string; authorId: string; roomId: string }): Promise<MessageRecord>;
   findRecent(roomId: string, limit: number, before?: MessageCursor): Promise<MessageRecord[]>;
 }
 
@@ -24,16 +25,23 @@ export class PrismaMessageRepository implements IMessageRepository {
 
   async create(params: {
     text: string;
+    imageData?: string;
     authorId: string;
     roomId: string;
   }): Promise<MessageRecord> {
     const message = await this.db.message.create({
-      data: { text: params.text, authorId: params.authorId, roomId: params.roomId },
+      data: {
+        text: params.text,
+        imageData: params.imageData ?? null,
+        authorId: params.authorId,
+        roomId: params.roomId,
+      },
       include: { author: { select: { displayName: true } } },
     });
     return {
       id: message.id,
       text: message.text,
+      imageData: message.imageData,
       authorId: message.authorId,
       authorName: message.author.displayName,
       roomId: message.roomId,
@@ -67,6 +75,7 @@ export class PrismaMessageRepository implements IMessageRepository {
     return messages.map((message) => ({
       id: message.id,
       text: message.text,
+      imageData: message.imageData,
       authorId: message.authorId,
       authorName: message.author.displayName,
       roomId: message.roomId,

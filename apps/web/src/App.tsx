@@ -4,6 +4,7 @@ import { JoinForm } from "./components/JoinForm";
 import { RoomHeader } from "./components/RoomHeader";
 import { RoomSelector } from "./components/RoomSelector";
 import { CreateRoomModal } from "./components/CreateRoomModal";
+import { JoinRequestPanel } from "./components/JoinRequestPanel";
 import { useChatSocket } from "./hooks/useChatSocket";
 import { useRooms } from "./hooks/useRooms";
 import "./App.css";
@@ -21,10 +22,14 @@ function App() {
     historyError,
     hasMoreHistory,
     roomTransitioning,
+    pendingApproval,
+    joinRequests,
     join,
     switchRoom,
     sendMessage,
     loadMoreHistory,
+    approveJoinRequest,
+    rejectJoinRequest,
   } = useChatSocket();
 
   const { rooms, loadingRooms, roomsError, creatingRoom, createRoomError, refreshRooms, createRoom } = useRooms();
@@ -64,8 +69,8 @@ function App() {
     await switchRoom(slug);
   }
 
-  async function handleCreateRoom(name: string) {
-    const room = await createRoom(name);
+  async function handleCreateRoom(name: string, isPrivate: boolean) {
+    const room = await createRoom(name, isPrivate, currentUser?.guestUserId);
     if (room) {
       setCreateModalOpen(false);
       setRoomDrawerOpen(false);
@@ -91,7 +96,11 @@ function App() {
       <div className="chat-card">
         <RoomHeader room={activeRoom} connectionStatus={connectionStatus} onOpenRoomDrawer={handleOpenRoomDrawer} />
 
-        {currentUser && activeRoom ? (
+        <JoinRequestPanel requests={joinRequests} onApprove={approveJoinRequest} onReject={rejectJoinRequest} />
+
+        {pendingApproval ? (
+          <JoinForm onJoin={join} error={joinError} submitting={roomTransitioning} pendingApproval />
+        ) : currentUser && activeRoom ? (
           <ChatRoom
             currentUser={currentUser}
             users={users}

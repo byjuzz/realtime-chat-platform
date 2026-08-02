@@ -9,8 +9,8 @@ const managerHandlers = new Map<string, Handler[]>();
 let lastJoinPayload: { name: string; guestUserId?: string; roomSlug: string } | undefined;
 
 const rooms: Record<string, PublicRoom> = {
-  general: { id: "room-general", name: "General", slug: "general", createdAt: 0 },
-  tecnologia: { id: "room-tech", name: "Tecnología", slug: "tecnologia", createdAt: 1 },
+  general: { id: "room-general", name: "General", slug: "general", createdAt: 0, isPrivate: false, creatorId: null },
+  tecnologia: { id: "room-tech", name: "Tecnología", slug: "tecnologia", createdAt: 1, isPrivate: false, creatorId: null },
 };
 
 const fakeSocket = {

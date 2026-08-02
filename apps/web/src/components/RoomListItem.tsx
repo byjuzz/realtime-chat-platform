@@ -18,7 +18,14 @@ export function RoomListItem({ room, active, onSelect, disabled }: RoomListItemP
         onClick={() => onSelect(room.slug)}
         disabled={disabled}
       >
-        <span className="room-list-item__name">{room.name}</span>
+        <span className="room-list-item__name">
+          {room.isPrivate ? (
+            <span className="room-list-item__lock" aria-label="Sala privada" title="Sala privada">
+              🔒
+            </span>
+          ) : null}
+          {room.name}
+        </span>
         {typeof room.connectedUsers === "number" ? (
           <span className="room-list-item__count" aria-label={`${room.connectedUsers} conectados`}>
             {room.connectedUsers}

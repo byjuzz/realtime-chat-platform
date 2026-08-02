@@ -6,6 +6,8 @@ import type {
   PublicRoom,
   PublicUser,
   RoomJoinAck,
+  RoomJoinData,
+  RoomJoinRequestPayload,
   ServerToClientEvents,
 } from "@realtime-chat/shared";
 import { getStoredGuestUserId, storeGuestUserId } from "../lib/guestIdentity";
@@ -31,10 +33,14 @@ export interface UseChatSocketResult {
   historyError: string | null;
   hasMoreHistory: boolean;
   roomTransitioning: boolean;
+  pendingApproval: boolean;
+  joinRequests: RoomJoinRequestPayload[];
   join: (name: string) => Promise<void>;
   switchRoom: (roomSlug: string) => Promise<void>;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, imageData?: string) => Promise<void>;
   loadMoreHistory: () => Promise<void>;
+  approveJoinRequest: (requestId: string) => Promise<void>;
+  rejectJoinRequest: (requestId: string) => Promise<void>;
 }
 
 function mergeMessagesById(existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
@@ -56,6 +62,8 @@ export function useChatSocket(): UseChatSocketResult {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [roomTransitioning, setRoomTransitioning] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<RoomJoinRequestPayload[]>([]);
 
   const activeRoomIdRef = useRef<string | null>(null);
   const nextCursorRef = useRef<string | null>(null);
@@ -72,6 +80,12 @@ export function useChatSocket(): UseChatSocketResult {
   // se consulta para el primer join (restaurar sesión en una pestaña nueva).
   const guestUserIdRef = useRef<string | null>(null);
   const activeRoomSlugRef = useRef<string | null>(null);
+  // Nombre de una solicitud de ingreso a sala privada aún pendiente de
+  // aprobación: se vuelca a nameRef solo si el creador termina aprobándola
+  // (ver applyJoinSuccess), igual que el resto de este hook nunca marca un
+  // join como "real" hasta tener confirmación del servidor.
+  const pendingJoinNameRef = useRef<string | null>(null);
+  const pendingJoinTokenRef = useRef<number | null>(null);
 
   const loadInitialHistory = useCallback(async (roomSlug: string, token: number) => {
     historyAbortRef.current?.abort();
@@ -98,6 +112,32 @@ export function useChatSocket(): UseChatSocketResult {
     }
   }, []);
 
+  const applyJoinSuccess = useCallback(
+    (data: RoomJoinData, token: number) => {
+      guestUserIdRef.current = data.user.guestUserId;
+      activeRoomSlugRef.current = data.room.slug;
+      storeGuestUserId(data.user.guestUserId);
+      storeActiveRoomSlug(data.room.slug);
+
+      activeRoomIdRef.current = data.room.id;
+      setCurrentUser(data.user);
+      setActiveRoom(data.room);
+      setUsers(data.users);
+      setMessages([]);
+      knownMessageIds.current.clear();
+      nextCursorRef.current = null;
+      setHasMoreHistory(false);
+      setSendError(null);
+      setPendingApproval(false);
+      // El socket ya está unido a la sala y recibiendo eventos en este punto;
+      // no se espera al historial para desbloquear el envío de mensajes.
+      setRoomTransitioning(false);
+
+      void loadInitialHistory(data.room.slug, token);
+    },
+    [loadInitialHistory]
+  );
+
   const performJoin = useCallback(
     async (name: string, roomSlug: string, isReconnect = false) => {
       const socket = socketRef.current;
@@ -106,6 +146,7 @@ export function useChatSocket(): UseChatSocketResult {
       const myToken = ++transitionTokenRef.current;
       setRoomTransitioning(true);
       setJoinError(null);
+      setPendingApproval(false);
 
       const guestUserId = guestUserIdRef.current ?? getStoredGuestUserId() ?? undefined;
 
@@ -116,6 +157,15 @@ export function useChatSocket(): UseChatSocketResult {
       if (myToken !== transitionTokenRef.current) return; // una transición más nueva ya está en curso
 
       if (!realAck.ok) {
+        if (realAck.code === "JOIN_PENDING_APPROVAL") {
+          // Se queda "transicionando" hasta que llegue room:join-resolved
+          // (aprobado, rechazado, o expirado) o el usuario cambie de sala.
+          pendingJoinNameRef.current = name;
+          pendingJoinTokenRef.current = myToken;
+          setPendingApproval(true);
+          return;
+        }
+
         setRoomTransitioning(false);
         if (isReconnect && realAck.code === "ROOM_NOT_FOUND" && roomSlug !== "general") {
           storeActiveRoomSlug("general");
@@ -128,28 +178,10 @@ export function useChatSocket(): UseChatSocketResult {
         return;
       }
 
-      guestUserIdRef.current = realAck.data.user.guestUserId;
-      activeRoomSlugRef.current = realAck.data.room.slug;
-      storeGuestUserId(realAck.data.user.guestUserId);
-      storeActiveRoomSlug(realAck.data.room.slug);
       nameRef.current = name;
-
-      activeRoomIdRef.current = realAck.data.room.id;
-      setCurrentUser(realAck.data.user);
-      setActiveRoom(realAck.data.room);
-      setUsers(realAck.data.users);
-      setMessages([]);
-      knownMessageIds.current.clear();
-      nextCursorRef.current = null;
-      setHasMoreHistory(false);
-      setSendError(null);
-      // El socket ya está unido a la sala y recibiendo eventos en este punto;
-      // no se espera al historial para desbloquear el envío de mensajes.
-      setRoomTransitioning(false);
-
-      void loadInitialHistory(realAck.data.room.slug, myToken);
+      applyJoinSuccess(realAck.data, myToken);
     },
-    [loadInitialHistory]
+    [applyJoinSuccess]
   );
 
   useEffect(() => {
@@ -186,11 +218,41 @@ export function useChatSocket(): UseChatSocketResult {
       setMessages((prev) => [...prev, message]);
     });
 
+    // Solicitudes de ingreso a alguna sala que este guest creó (llega aunque
+    // no esté "dentro" de esa sala ahora mismo). Se auto-eliminan de la lista
+    // al expirar, aunque quien decide (aprobar/rechazar) también las saca.
+    socket.on("room:join-request", (payload) => {
+      setJoinRequests((prev) => [...prev, payload]);
+      const delay = Math.max(0, payload.expiresAt - Date.now());
+      setTimeout(() => {
+        setJoinRequests((prev) => prev.filter((request) => request.requestId !== payload.requestId));
+      }, delay);
+    });
+
+    // Resolución (aprobada/rechazada/expirada) de MI propia solicitud pendiente.
+    socket.on("room:join-resolved", (payload) => {
+      if (pendingJoinTokenRef.current === null || pendingJoinTokenRef.current !== transitionTokenRef.current) return;
+      const token = pendingJoinTokenRef.current;
+      const name = pendingJoinNameRef.current;
+      pendingJoinTokenRef.current = null;
+      pendingJoinNameRef.current = null;
+
+      if (payload.ok) {
+        if (name) nameRef.current = name;
+        applyJoinSuccess(payload.data, token);
+        return;
+      }
+
+      setPendingApproval(false);
+      setRoomTransitioning(false);
+      setJoinError(payload.message);
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [performJoin]);
+  }, [performJoin, applyJoinSuccess]);
 
   const join = useCallback(
     (name: string) => performJoin(name, getStoredActiveRoomSlug(), false),
@@ -207,12 +269,12 @@ export function useChatSocket(): UseChatSocketResult {
   );
 
   const sendMessage = useCallback(
-    (text: string) => {
+    (text: string, imageData?: string) => {
       return new Promise<void>((resolve) => {
         const socket = socketRef.current;
         if (!socket || roomTransitioning) return resolve();
         setSendError(null);
-        socket.emit("message:send", { text }, (ack) => {
+        socket.emit("message:send", { text, imageData }, (ack) => {
           if (!ack.ok) {
             setSendError(ack.message);
           }
@@ -246,6 +308,24 @@ export function useChatSocket(): UseChatSocketResult {
     }
   }, [historyLoading, activeRoom]);
 
+  const respondToJoinRequest = useCallback((requestId: string, approve: boolean) => {
+    return new Promise<void>((resolve) => {
+      const socket = socketRef.current;
+      const guestUserId = guestUserIdRef.current ?? getStoredGuestUserId();
+      if (!socket || !guestUserId) {
+        resolve();
+        return;
+      }
+      socket.emit(approve ? "room:approve" : "room:reject", { requestId, guestUserId }, () => {
+        setJoinRequests((prev) => prev.filter((request) => request.requestId !== requestId));
+        resolve();
+      });
+    });
+  }, []);
+
+  const approveJoinRequest = useCallback((requestId: string) => respondToJoinRequest(requestId, true), [respondToJoinRequest]);
+  const rejectJoinRequest = useCallback((requestId: string) => respondToJoinRequest(requestId, false), [respondToJoinRequest]);
+
   return {
     connectionStatus,
     currentUser,
@@ -258,9 +338,13 @@ export function useChatSocket(): UseChatSocketResult {
     historyError,
     hasMoreHistory,
     roomTransitioning,
+    pendingApproval,
+    joinRequests,
     join,
     switchRoom,
     sendMessage,
     loadMoreHistory,
+    approveJoinRequest,
+    rejectJoinRequest,
   };
 }

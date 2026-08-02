@@ -17,11 +17,11 @@ export async function fetchRooms(signal?: AbortSignal): Promise<PublicRoom[]> {
   return body.rooms;
 }
 
-export async function createRoomRequest(name: string): Promise<PublicRoom> {
+export async function createRoomRequest(name: string, isPrivate: boolean, guestUserId?: string): Promise<PublicRoom> {
   const response = await fetch(`${API_URL}/api/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, isPrivate, guestUserId }),
   });
 
   if (!response.ok) {

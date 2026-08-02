@@ -12,7 +12,7 @@ export interface ChatRoomProps {
   historyError?: string | null;
   hasMoreHistory?: boolean;
   disabled?: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, imageData?: string) => void;
   onLoadMoreHistory?: () => void;
 }
 
